@@ -1,0 +1,260 @@
+---
+title: "Homefield Advantage writeup"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    number_sections: false
+    toc_depth: 3
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+#These are the libraries that I will be using in the deliverable
+require(dplyr)
+require(data.table)
+
+#This is a data set that contains all possible outcomes for the Braves in the World Series
+apo <- fread("https://raw.githubusercontent.com/thomasgstewart/data-science-5620-fall-2020/master/deliverables/assets/all-possible-world-series-outcomes.csv")
+```
+
+# Introduction
+
+**If home field advantage exists, how much of an impact does it have on winning the world series?**
+
+As an HR manager, you spend _hours_ reading data scientist applications. Although the applicants are probably brilliant, I bet you have become bored by the application process. Luckily, you now get to read my application. I hope to put a twist on some of the concepts that you have grown tired of, by connecting them to baseball! Specifically, we will be exploring the concept of the home field advantage. When a team has a **home field advantage** they have a greater probability of winning a game at their home stadium. For example, if the Braves have a home field advantage they have an edge over the their opponent (we will use the Yankees as the other team) in a head-to-head match-up in Atlanta. Similarly, it is the edge that the Yankees may have over the Braves if the head-to-head matchup is in New York.
+
+# Background 
+
+## Absolute Error
+
+If you have read any of my previous blogs, you may remember that I have explained the concepts of absolute and relative error. I will do so again as a refresher, since these concepts will also be relevant as we explore the efficacy of the home field advantage.  
+
+The simulations of the World Series will generate approximate answers, and there will be some degree of error between these approximations and the actual answers. This is **absolute error**. When only a small number of **replications** of a simulation are done, there is usually a lot of error between the actual answer and the approximate answer. However, increasing the number of replications minimizes the error. 
+
+### Absolute Error Formula
+
+Absolute Error is calculated as: 
+
+**absolute error** = \|*p̂*−*p*\|
+
+*p̂* is the approximate probability, and *p* is the actual probability.
+
+## Relative Error
+
+Relative error is the ratio of the absolute error of a measurement to the actual measurement. We can find this by dividing the absolute error by the actual measurement.
+
+### Relative Error Formula
+
+Relative Error is calculated as:
+
+**relative error** = \|*p̂*−*p*\|/*p
+
+*p̂ *is the approximate probability, and *p* is the actual probability
+
+## Details for the World Series
+
+The World Series is a first-to-4-wins match-up between the champions of the American and National Leagues of Major League Baseball. There can be between 4 and 7 games in a World Series. 
+
+Here are the specific details for our World Series:
+
+1. The **Braves** and the **Yankees** are teams competing in the
+    World Series.
+
+2.  The table below has the two possible schedules for each game of the
+    series. (NYC = **New York City**, ATL = **Atlanta**)
+
+| Overall advantage | Game 1 | Game 2 | Game 3 | Game 4 | Game 5 | Game 6 | Game 7 |
+|:-----------------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+|       Braves      |   ATL  |   ATL  |   NYC  |   NYC  |   NYC  |   ATL  |   ATL  |
+|      Yankees      |   NYC  |   NYC  |   ATL  |   ATL  |   ATL  |   NYC  |   NYC  |
+
+3.   Let ***P*<sub>*B*</sub>** be the probability that the Braves win a
+    single head-to-head match-up with the Yankees, under the assumption
+    that home field advantage doesn’t exist. Let
+    ***P*<sub>*B*</sub><sup>*H*</sup>** denote the probability that the
+    Braves win a single head-to-head match-up with the Yankees as the
+    home team (H for home). Let ***P*<sub>*B*</sub><sup>*A*</sup>** denote
+    the probability that the Braves win a single head-to-head match-up
+    with the away team (A for away).
+
+| Game location |    No advantage   | Advantage                                                            |
+|:-------------:|:-----------------:|:---------------------------------------------------------------------|
+|      ATL      | *P*<sub>*B*</sub> | *P*<sub>*B*</sub><sup>*H*</sup> = *P*<sub>*B*</sub> \* 1.1           |
+|      NYC      | *P*<sub>*B*</sub> | *P*<sub>*B*</sub><sup>*A*</sup> = 1 − (1 − *P*<sub>*B*</sub>) \* 1.1 |
+
+## Important Questions
+
+In this blog, I am going to use simulation and analytic methods to compare the probability of winning the World Series with and without home field advantage.
+
+Here are the specific questions that we will answer. 
+
+**1.**  Compute analytically the probability that the Braves win the world
+    series when the sequence of game locations is {NYC, NYC, ATL, ATL,
+    ATL, NYC, NYC}. Calculate the probability
+    with and without home field advantage when *P*<sub>*B*</sub> = 0.55.
+    What is the difference in probabilities?
+
+**2.**  Calculate the same probabilities as the previous question by
+    simulation.
+
+**3.**  What is the absolute and relative error for the simulation in the
+    previous question?
+
+# Methods 
+
+## 1.  Compute analytically the probability that the Braves win the world series when the sequence of game locations is {NYC, NYC, ATL, ATL, ATL, NYC, NYC}. Calculate the probability with and without home field advantage when *P*<sub>*B*</sub> = 0.55. What is the difference in probabilities?
+
+One would assume that possessing a home field advantage would give a team a significantly higher probability of winning the World Series. However, I will explain how the probability of the Braves winning the World Series with the home field advantage is similar to the probability of them winning the World Series without the home field advantage. The locations of the game have a tremendous impact on their probability of winning the entire World Series. In the one possible sequence of game locations, they only have three out of seven of the World Series games at their home stadium. Consequently, they have a home field advantage at only three games and are **disadvantaged** at four of the games.
+
+To answer our first question I will create a function that takes a **home field indicator**, the advantage multiplier, and the probability that the Braves win a single game as input. The home field indicator tells us whether or not the Braves are playing away or at home. A 0 indicates that they are playing away, and a 1 indicates that they are playing at home. The probability that the Braves win a single game is 0.55. When the Braves have a home field advantage, the advatage multpiplier is 1.1. When there is no home field advantage, the advantage multiplier is 1. The output of the function is the probability that the Braves either win or lose the World Series. 
+
+```{r}
+# Home field indicator
+  # hfi <- c(1,1,0,0,0,1,1) is {ATL, ATL, NYC, NYC, NYC, ATL, ATL}
+  # hfi <- c(0,0,1,1,1,0,0) is {NYC, NYC, ATL, ATL, ATL, NYC, NYC}
+
+ana_world_series <- function(hfi = c(0,0,1,1,1,0,0), 
+#0 represents the braves playing away (NO, they don't have a homefield advantage) and 1 represent the braves playing at home (YES, they have a homefield advantage)
+                             advantage_multiplier = 1.1, 
+                        # advantage multiplier = 1 for no advantage
+                             p_braves= 0.55){
+  
+  p_braves_home <- 0.55*advantage_multiplier
+  # Probability that the Braves win at home
+  p_braves_away <- 1 - (1 - 0.55)*advantage_multiplier
+  # Probability that the Braves win away
+  # Calculate the probability of each possible outcome
+  apo[, p := NA_real_] # Initialize new column in apo to store probability
+  for(i in 1:nrow(apo)){
+    prob_game <- rep(1, 7)
+    for(j in 1:7){
+      p_win <- ifelse(hfi[j], p_braves_home, p_braves_away)
+      prob_game[j] <- case_when(
+          apo[i,j,with=FALSE] == "W" ~ p_win
+        , apo[i,j,with=FALSE] == "L" ~ 1 - p_win
+        , TRUE ~ 1
+      )
+    }
+    apo[i, p := prod(prob_game)] # Data.table syntax
+  }
+# Sanity check: does sum(p) == 1?
+# apo[, sum(p)] # This is data.table notation
+
+# Probability of overall World Series outcomes
+apo[, sum(p), overall_outcome]
+}
+
+```
+Below are the results from an analytic World Series with a homefield advantage. It is important to remember that the Braves have a 0.55 probability of winning a single head-to-head matchup. With the homefield advantage, they have a 0.604221 probability of winning the  entire World Series. They have a 0.395779 probability of losing the World Series. Let's see how these result compare to an analytic World Series without a home field advantage. 
+```{r}
+#ANSWER
+ana_world_series(hfi <- c(0,0,1,1,1,0,0))
+# 4 away games. homefield advantage at 3 and disadvantage at 4
+```
+Below are the results for an analytic World Series without a home field advantage. There is a 0.6082878 probability that the Braves win the World Series under these conditions. Not only are the probabilities that the Braves win with and without the home field advantage very close, but there is also a higher probability that the Braves win the entire World Series when they **do not** have a home field advantage. The probability that the Braves win without the home field advabtage is greater than the probability that they win with the advantage by 0.0040668. Why is that? Well, there are only three home games in the analytic World Series, so the Braves are negatively impacted at four games. They will do better without the home field advantage, because they will not be disadvantaged at any away games while still maintaining the 0.55 probability of winnning a single head-to-head matchup. 
+```{r}
+ana_world_series(hfi <- c(0,0,1,1,1,0,0), advantage_multiplier = 1)
+# 4 away games. no homefield advantage at 
+
+```
+
+
+## 2.  Calculate the same probabilities as the previous question by simulation.
+
+Next we will calculate the same probabilities as the previous question, however this time we will use simulation. Our simulated World Seried will also be a function that takes the home field indicator, the advantage multiplier, and the probability that the Braves win a single game as input. In the beginning of the simulation, the win count will be zero. For every game in the series, if the Braves have a home field advantage, the probability of them winning a game is their probability of winning (0.55) multiplied by the advantage multiplier. We can look at a single game outcome like a flip of a coin. Just as a coin will land on either heads or tails, the Braves either win or lose each game in the World Series. We can  use the rbinom function to return either a win (1) or loss (0) for each game. When the Braves win the game, 1 is added to the win count. Otherwise, 0 is added to the win count. We stop the loop if either teams wins four of the World Series games.
+```{r}
+sim_world_series <- function(hfi = c(0,0,1,1,1,0,0), 
+                             advantage_multiplier = 1.1, 
+                             p_braves= 0.55){
+  
+  p_braves_home <- 0.55*advantage_multiplier
+  p_braves_away <- 1 - (1 - 0.55)*advantage_multiplier
+  
+  win_count = 0
+  
+  for(i in 1:7){
+    if(hfi[i]){
+      # if the homefield advantage is TRUE
+      p_win = p_braves_home
+      # the probability of winning is the probability of winning when we're home
+    }else{
+      p_win = p_braves_away
+      # the probability of winning when we're away
+    }
+    
+    game_outcome = rbinom(1,1, p_win)
+    # like a flip of a coin that shows if we win or lose a single game. Returns either a 1 (win) or a 0 (lose)
+    win_count = win_count + game_outcome
+    # Win_count will have 1 added to it if the game is won or 0 added to it if the game is lost.
+    if(win_count ==4 | (i- win_count) ==4) break
+  }
+  return(win_count ==4)
+  # the loop stops if either team wins 4 games 
+}
+```
+
+If we simulate many iterations of the World Series, we can find the mean probability that The Braves win the World Series. The mean can then be compared to the probabilities from the analytic World Series. In the simulation below, the Braves have a 0.60633 probablity of winning the World Series with a home field advantage. This is slightly larger than the 0.604221 probability that we found in the analytic World Series. 
+
+```{r}
+set.seed(43)
+saved_adv = NA
+for(i in 1:100000){
+  saved_adv[i]= sim_world_series(hfi <- c(0,0,1,1,1,0,0))
+}
+mean(saved_adv)
+```
+
+We can also simulate many iterations of the World Series to find thw mean probability that the Braves win the World Series without a home field advantage. In the simulation below, the Braves have a 0.60875 probability of winning the World Series without a home field advantage. This is higher than the probability of them winning the World Series without a home field advantage. The probability is also slightly larger than the 0.6082878 probability that we found in the analytic World Series. 		
+
+```{r}
+set.seed(43)
+saved_no_adv = NA
+for(i in 1:100000){
+  saved_no_adv[i]= sim_world_series(hfi <- c(0,0,1,1,1,0,0), advantage_multiplier = 1)
+}
+mean(saved_no_adv)
+
+```
+
+
+## 3.  What is the absolute and relative error for the simulation in the previous question?
+
+Now that we have the mean probability of winning the World Series according to our simulation, we can now find the absolute and relative errors.
+
+Recall that **absolute error** = \|*p̂*−*p*\| and **relative error** = \|*p̂*−*p*\|/*p. 
+
+When there is a home field advantage, the absolute error is:
+```{r}
+abs(mean(saved_adv)- ana_world_series (hfi <- c(0,0,1,1,1,0,0))$V1[1])
+#absolute error with advantage
+```
+The relative error is:
+```{r}
+(abs(mean(saved_adv)- ana_world_series (hfi <- c(0,0,1,1,1,0,0))$V1[1]))/ (ana_world_series (hfi <- c(0,0,1,1,1,0,0))$V1[1])
+#relative error with advantage
+```
+
+When there is not a home field advantage, the absolute error is smaller than the absolute error of winning the World Series with the advantage. The relative error is lower than the relative error of winning the World Series with the home field advantage. 
+
+The absolute error is: 
+```{r}
+abs(mean(saved_no_adv)- ana_world_series (hfi <- c(0,0,1,1,1,0,0), advantage_multiplier = 1)$V1[1])
+#absolute error no advantage
+```
+
+The relative error is:
+```{r}
+(abs(mean(saved_no_adv)- ana_world_series (hfi <- c(0,0,1,1,1,0,0), advantage_multiplier = 1)$V1[1]))/(ana_world_series (hfi <- c(0,0,1,1,1,0,0), advantage_multiplier = 1)$V1[1])
+#relative error no advantage
+```
+
+# Conclusions
+
+I hope that you found this process as helpful as I did! Going through this deliverable has given me a greater understanding of **absolute error** and **relative error** . We also got to discuss past concepts such as **stopping rules** (The World Series ends after one team wins four games)! Most importantly, it finally feels like I am understanding the game of baseball. As we saw in this deliverable, sometimes an advantage is not _actually_ an advantage. Likewise, your company would DEFINITELY have an advantage if you hire me! As always, I thank you for reading my blog and good luck finding the best data scientist for your company.

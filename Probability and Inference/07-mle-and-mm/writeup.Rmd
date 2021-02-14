@@ -1,0 +1,933 @@
+---
+title: "MLE and MM"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    number_sections: no
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+```{r global options, include = FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+# Introduction
+
+If you're interested in learning some data science concepts but don't know where to start, you're in the right place! If you follow my tutorial, you'll be able to understand how to use **maximum likelihood** and **method of moments**. These are two common tools for constructing a model! 
+
+## Data 
+
+The data that I will be using is from the National Health
+and Nutrition Examination Survey 2009-2010 (NHANES). Since I am looking for (a) Height
+and (b) Glycohemoglobin of adult females, I filtered the data to only show this information. There are 3015 adult females included in the data set. 
+
+```{r}
+# The data 
+require(dplyr)
+Hmisc::getHdata(nhgh)
+d1 <- nhgh %>% 
+  filter(sex == "female") %>% 
+  filter(age >= 18) %>% 
+  select(gh, ht) 
+```
+
+# Background
+
+The two main concepts we will focus on in this tutorial are *maximum likelihood estimation* (MLE) and *method of moments*. These are two methods that we can use to estimate the parameters of a probability distribution when the data is _fixed_. 
+
+In this tutorial I will:
+
+1.  Show how to calculate estimates of parameters
+2.  Provide visuals that show the estimated distribution compared to the
+    empirical distribution ( I will comment on the quality of the fit).
+    -   Overlay estimated pdf onto histogram
+    -   Overlay estimated CDF onto eCDF
+    -   QQ plot (sample vs estimated distribution)
+3.  Explain how to calculate the median from the estimated
+    distribution
+4.  Demonstrate how to generate the median sampling distribution
+5.  Calculated the range of middle 95% of sampling distribution, and
+    explain why such a quantity is important.
+
+## Maximum Likelihood Estimation
+
+Maximum likelihood estimation is a tool that we can use to estimate the parameters of a probability distribution by _maximizing_ the _likelihood function_. When we maximize the likelihood function we get the parameters that make the observed data the most likely to occur. The parameters we find can be called *maximum likelihood estimates*
+
+## Method of Moments
+
+The method of moments is a tool that we can use to estimate the parameters of a probability distribution by equating distribution moments (ex: population mean or population standard deviation) to sample moments (ex: mean or standard deviation). 
+
+Here are the Important Steps:
+
+### 1. Choose a parametric distribution **AND** Identify the distribution parameters 
+
+- For example, we can choose a gamma distribution and use the **bmi** data from the nhgh data set.
+
+- The parameters for a gamma distribution are shape and scale
+
+### 2. Calculate/find distribution **moments** (need as many moments as distribution parameters)
+
+_The distribution moments for the gamma distribution are mean and variance_
+
+  - E[X]= shape * scale
+
+  - V[X]= shape * scale^2^
+
+### 3. Calculate sample moments.
+
+${\bar{X}} = mean(bmi) = 28.32$
+
+$s^2 = var(bmi) = 48.30$
+
+### 4. Create system of equations equating distribution moments to sample moments.
+
+$shape * scale = {\bar{X}}$
+
+$shape * scale^2 = s^2$
+
+### 5. Solve system of equations for distribution parameters.
+
+$shape = \frac{\bar{X}}{scale}$
+  
+$s^2 = \frac{\bar{X}}{scale}*scale^2$
+  
+$scale = \frac{s^2}{\bar{X}} , shape = \frac{\bar{X}^2}{s^2}$
+
+The values that we get from following these steps are **method of moments estimators**.
+
+# Methods 
+
+## Maximum Likelihood Estimation
+
+### Height Data 
+
+First we will explore the concept of MLE with the height data from the data set. 
+
+**1.  Show how to calculate estimates of parameters**
+
+Each distribution has a very specific set of parameters. The parameters for the **gamma distribution** are shape and scale. The parameters for the **normal distribution** are mean and standard deviation. The parameters for the **weibull distribution** are shape and scale. 
+
+```{r}
+require(stats4)
+require(EnvStats)
+
+# Parameters for Gamma 
+x <- as.vector(d1$ht)
+gam <- egamma(x, method = "mle")
+gam_shap <- gam$parameters[1]
+gam_scal <- gam$parameters[2]
+gam$parameters
+```
+
+To find the parameters for the gamma distribution using MLE, I used the function **egamma()**. This function took a vector of height data and the method (which is MLE) as inputs, and it gave me the parameters as outputs. The shape of the gamma distribution of the height data is 480.38 and the scale is 0.3343.
+
+```{r}
+# Parameters for Normal
+  # Negative log likelihood
+  nLL <- function(mean, sd){
+    fs <- dnorm(
+      x = d1$ht,
+      mean = mean,
+      sd = sd,
+      log = TRUE
+    )
+    -sum(fs)
+  }
+# Get estimated parameters for normal- mean and sd
+fit <- mle(
+  nLL, 
+  start= list( mean=1, sd= 1),
+  method= "L-BFGS-B",
+  lower= c(0, 0.01)
+)
+fit
+# par(mfrow = c(1,2)); plot(profile(fit), absVal= FALSE)
+```
+
+To find the parameters for the normal distribution using MLE, I used the negative log likelihood function. I then used the mle() function. The mean for the normal distribution of the height data is 160.6 and the standard deviation for the normal distribution of the height data is 7.3275.
+
+```{r}
+# Parameters for Weibull
+
+weib <- eweibull(x, method= "mle")
+weib_shap <- weib$parameters[1]
+weib_scal <- weib$parameters[2]
+weib$parameters
+```
+
+To find the parameters for the weibull distribution using MLE, I used the function eweibull(). This function took a vector of height data and the method (which is MLE) as inputs, and it gave me the parameters as outputs. The shape of the weibull distribution of the height data is 22.45 and the scale is 164.09.
+
+**2.  Provide visuals that show the estimated distribution compared to the empirical distribution ( I will comment on the quality of the fit).**
+    
+Firstly, I will overlay the estimated **Probability Density Function** for each distribution onto the histogram for the height data.
+To find the PDFs for each distribution I will use the functions: dnorm(), dgamma(), and dweibull(). Each of these functions will take the height data and the parameters found using MLE as input. If you have read any of my previous blogs you may recall that the PDF gives us the likelihood of each outcome. When we graph the PDF we can find the area under the curve in an interval to find the probability that a discrete random variable occurs.
+
+```{r}
+#  Overlay estimated pdf onto histogram 
+hist(d1$ht, freq= FALSE, breaks= 100, main= "Height of Adult Females: MLE", ylim= c(0, 0.07))
+curve(dnorm(x, coef(fit)[1], coef(fit)[2]), add= TRUE,  col= "red", lwd= 2)
+curve(dgamma(x, shape= gam_shap, scale= gam_scal), add= T, col= "blue", lwd= 2)
+curve(dweibull(x, shape= weib_shap, scale= weib_scal), add= T, col= "green")
+legend("topright", inset= 0.025, legend= c("gamma PDF","normal PDF", "weibull PDF"), col= c ("blue", "red", "green"), lty= 1, lwd= 2, cex= 0.65)
+
+```
+
+From the plot above, we can see that the histogram fits the PDFs for gamma distribution and the normal distribution the best. For both PDFs the greatest likelihood is that the height is around 160 cm. The PDF for the weibull distribution is slightly left-skewed. According to this PDF, the greatest likelihood is that the height is around 165 cm. This does not fit with the histogram for the height data. 
+
+Now, I will overlay the estimated CDF onto the eCDF. The cumulative density function is a function that gives the probability that a random variable is less than or equal to the inputted variable of the function.
+  
+```{r}
+#Plot CDF onto eCDF
+plot(ecdf(d1$ht), col= "gray", main= "eCDF for Height: MLE")
+curve(pgamma(x, shape= gam_shap, scale= gam_scal), add= T, col= "red", lwd= 2)
+curve(pnorm(x, coef(fit)[1], coef(fit)[2]), add = TRUE, col= "green", lty= 2, lwd= 2)
+curve(pweibull(x, shape= weib_shap, scale= weib_scal), add= T, col= "blue", lty= 3, lwd= 2)
+legend("bottomright", inset= 0.05 , legend= c("gamma CDF","normal CDF", "weibull CDF"), col= c ("red", "green", "blue"), lty= c(1,2,3), lwd= 2, cex= 0.65)
+```
+
+As you can see from the plot above, the CDFs for the gamma distribution and the normal distribution fit the eCDF the best.
+
+Now I will create Q-Q plots for each of the distributions. Q-Q plots are helpful, because they will enable us to plot the quantiles of the height data against the quantiles of the points for each distribution. If the points that are plotted against each other have the same values, then it is likely that the data has that corresponding distribution.
+
+```{r}
+## QQplots (sample vs estimated dist)
+# x values are the theoretical and y values are the data
+
+# Gamma Distribution
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qgamma(p, shape= gam_shap, scale= gam_scal)
+
+plot(x,y, main= "Gamma QQ Plot")
+abline(0,1)
+
+# Normal Distribution 
+
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qnorm(p, coef(fit)[1], coef(fit)[2])
+
+plot(x,y, main= "Normal QQ Plot")
+abline(0,1)
+
+# Weibull Distribution
+
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qweibull(p, shape= weib_shap, scale= weib_scal)
+
+plot(x,y, main= "Weibull QQ Plot")
+abline(0,1)
+
+```
+
+As we can see from the Q-Q plots above, the height data most likely has either a normal distribution or a gamma distribution. The Q-Q plot for the weibull distribution has the worst fit out of the three distributions.
+
+**3.  Explain how to calculate the median from the estimated distribution.**
+
+To calculate the estimated median for each distribution we can use the functions: qnorm(), qgamma(), and qweibull(). The median value can be found where the probability is equal to 0.5. 
+
+```{r}
+# Estimated Median 
+median(d1$ht)
+qnorm(0.5, mean= coef(fit)[1], sd=  coef(fit)[2])
+qgamma(0.5, shape= gam_shap, scale= gam_scal)
+qweibull(0.5, shape= weib_shap, scale= weib_scal)
+
+```
+
+The median height observed in the data set is 160.6 cm. The medians from the normal and gamma distributions are closer to the sample median than the median from the weibull distribution.
+
+**4.  Demonstrate how to generate the median sampling distribution**
+
+Now we will find generate the median sampling distribution for each distribution. To do this we can simulate multiple samples that have 3015 observations (just like the data set we are using). As we go through each iteration of the simulation, we will get a different median. A histogram will allow us to see which median is the most frequent. We can also compare the median sampling distribution to the median that was observed in the data. 
+
+```{r}
+# Median Sample Distribution (hist)
+n= nrow(d1)
+# 3015 rows in the data set
+
+#Gamma Distribution
+meds_gamma= NA
+for(i in 1:10000){
+  data= rgamma(n, shape= gam_shap, scale= gam_scal)
+  meds_gamma[i]= median(data)
+}
+
+hist(meds_gamma, breaks= 100, main="Gamma Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Normal Distribution
+meds_norm= NA
+for(i in 1:10000){
+  data= rnorm(n, mean= coef(fit)[1], sd=  coef(fit)[2])
+  meds_norm[i]= median(data)
+}
+
+hist(meds_norm, breaks= 100, main= "Normal Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Weibull Distribution 
+meds_weib= NA
+for(i in 1:10000){
+  data= rweibull(n,shape= weib_shap, scale= weib_scal)
+  meds_weib[i]= median(data)
+}
+
+hist(meds_weib, breaks= 100, xlim= c(160.5,162), main= "Weibull Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+ 
+```
+
+As you can see from the histograms, the sample medians from the weibull distribution are above the mean observed height. The median looks like it is either coming from the histogram for the normal distribution or the histogram for the gamma distribution.
+
+**5.  Calculated the range of middle 95% of sampling distribution, and explain why such a quantity is important.**
+
+Now, I will calculate the middle 95% of the sampling distribution. This quantity is important because with a normal distribution about 95% of observations are within two standard deviations of the mean.
+
+```{r}
+# Range of Middle 95% of Sample Distribution
+
+#Gamma
+diff(quantile(meds_gamma, probs= c(0.025, 0.975)))
+
+#Normal
+diff(quantile(meds_norm, probs= c(0.025, 0.975)))
+
+#Weibull
+diff(quantile(meds_weib, probs= c(0.025, 0.975)))
+```
+
+It is important to note that if the range is small it doesn't mean that it fits the data better. It just means that there is a narrow range for the simulated medians (less variance). If there was a wider range there would be more variance.
+
+### Glycohemoglobin Data
+
+Now that we are done exploring the MLE using the height data from the data set, we will explore it using the glycohemoglobin data.
+
+**1.  Show how to calculate estimates of parameters**
+
+Just as we saw with the height data, each distribution has a very specific set of parameters. 
+
+```{r}
+# Parameters for Gamma 
+x <- as.vector(d1$gh)
+gam <- egamma(x, method = "mle")
+gam_shap <- gam$parameters[1]
+gam_scal <- gam$parameters[2]
+gam$parameters
+```
+
+To find the parameters for the gamma distribution using MLE, I used the function **egamma()**. This function took a vector of glycohemoglobin data and the method (which is MLE) as inputs, and it gave me the parameters as outputs. The shape of the gamma distribution of the glycohemoglobin data is 47.455 and the scale is 0.12.
+
+```{r}
+# Parameters for Normal
+  # Negative log likelihood
+  nLL <- function(mean, sd){
+    fs <- dnorm(
+      x = d1$gh,
+      mean = mean,
+      sd = sd,
+      log = TRUE
+    )
+    -sum(fs)
+  }
+# Get estimated parameters for normal- mean and sd
+fit <- mle(
+  nLL, 
+  start= list( mean=1, sd= 1),
+  method= "L-BFGS-B",
+  lower= c(0, 0.01)
+)
+fit
+# par(mfrow = c(1,2)); plot(profile(fit), absVal= FALSE)
+```
+
+To find the parameters for the normal distribution using MLE, I used the negative log likelihood function. I then used the mle() function. The mean for the normal distribution of the glycohemoglobin data is 5.705 and the standard deviation for the normal distribution of the glycohemoglobin data is 0.956.
+
+```{r}
+# Parameters for Weibull
+
+weib <- eweibull(x, method= "mle")
+weib_shap <- weib$parameters[1]
+weib_scal <- weib$parameters[2]
+weib$parameters
+```
+
+To find the parameters for the weibull distribution using MLE, I used the function eweibull(). This function took a vector of glycohemoglobin data and the method (which is MLE) as inputs, and it gave me the parameters as outputs. The shape of the weibull distribution of the glycohemoglobin data is 4.3724 and the scale is 6.121.
+
+
+**2.  Provide visuals that show the estimated distribution compared to the empirical distribution ( I will comment on the quality of the fit).**
+    
+Firstly, I will overlay the estimated **Probability Density Function** for each distribution onto the histogram for the glycohemoglobin data.
+Once again, to find the PDFs for each distribution I will use the functions: dnorm(), dgamma(), and dweibull().
+
+```{r}
+#  Overlay estimated pdf onto histogram 
+hist(d1$gh, freq= FALSE, breaks= 100, main= "GH of Adult Females: MLE", xlim= c(4,10), ylim= c(0,1))
+curve(dnorm(x, coef(fit)[1], coef(fit)[2]), add= TRUE,  col= "red", lwd= 2)
+curve(dgamma(x, shape= gam_shap, scale= gam_scal), add= T, col= "blue", lwd= 2)
+curve(dweibull(x, shape= weib_shap, scale= weib_scal), add= T, col= "green")
+legend("topright", inset= 0.025, legend= c("gamma PDF","normal PDF", "weibull PDF"), col= c ("blue", "red", "green"), lty= 1, lwd= 2, cex= 0.65)
+```
+From the plot above, we can see that the histogram most closely fits the PDFs for gamma distribution and the normal distribution. For both PDFs the greatest likelihood is that the glycohemoglobin is around 5.5.
+
+Now, I will overlay the estimated CDF onto the eCDF. 
+
+```{r}
+#Plot CDF onto eCDF
+plot(ecdf(d1$gh), col= "gray", main= "eCDF for GH: MLE")
+curve(pgamma(x, shape= gam_shap, scale= gam_scal), add= T, col= "red", lwd= 2)
+curve(pnorm(x, coef(fit)[1], coef(fit)[2]), add = TRUE, col= "green", lty= 2, lwd= 2)
+curve(pweibull(x, shape= weib_shap, scale= weib_scal), add= T, col= "blue", lty= 3, lwd= 2)
+legend("bottomright", inset= 0.05 , legend= c("gamma CDF","normal CDF", "weibull CDF"), col= c ("red", "green", "blue"), lty= c(1,2,3), lwd= 2, cex= 0.65)
+```
+As you can see from the plot above, the CDFs for the gamma distribution and the normal distribution fit the eCDF the best.
+
+Now I will create Q-Q plots for each of the distributions. 
+
+```{r}
+## QQplots (sample vs estimated dist)
+# x values are the theoretical and y values are the data
+
+# Gamma Ditribution
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qgamma(p, shape= gam_shap, scale= gam_scal)
+
+plot(x,y, main= "Gamma QQ Plot")
+abline(0,1)
+
+# Normal Distribution 
+
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qnorm(p, coef(fit)[1], coef(fit)[2])
+
+plot(x,y, main= "Normal QQ Plot")
+abline(0,1)
+
+# Weibull Distribution
+
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qweibull(p, shape= weib_shap, scale= weib_scal)
+
+plot(x,y, main= "Weibull QQ Plot")
+abline(0,1)
+
+```
+As we can see from the Q-Q plots above, the glycohemoglobin data does not have a strong fit with any of the three distributions. The Q-Q plot for the weibull distribution appears to have the worst fit out of the three distributions.
+
+**3.  Explain how to calculate the median from the estimated distribution.**
+
+To calculate the estimated median for each distribution we can use the functions: qnorm(), qgamma(), and qweibull(). The median value can be found where the probability is equal to 0.5. 
+
+```{r}
+# Estimated Median 
+median(d1$gh)
+qnorm(0.5, mean= coef(fit)[1], sd=  coef(fit)[2])
+qgamma(0.5, shape= gam_shap, scale= gam_scal)
+qweibull(0.5, shape= weib_shap, scale= weib_scal)
+```
+
+The median glycohemoglobin observed in the data set is 5.5. All of the medians from the normal, gamma, and weibull distributions are larger than the sample median.
+
+
+**4.  Demonstrate how to generate the median sampling distribution**
+
+Now we will generate the median sampling distribution for each distribution. 
+
+```{r}
+# Median Sample Distribution (hist)
+n= nrow(d1)
+# 3015 rows in the data set
+
+#Gamma Distribution
+meds_gamma= NA
+for(i in 1:10000){
+  data= rgamma(n, shape= gam_shap, scale= gam_scal)
+  meds_gamma[i]= median(data)
+}
+
+hist(meds_gamma, breaks= 100, xlim= c(5.5,5.7), main="Gamma Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Normal Distribution
+meds_norm= NA
+for(i in 1:10000){
+  data= rnorm(n, mean= coef(fit)[1], sd=  coef(fit)[2])
+  meds_norm[i]= median(data)
+}
+
+hist(meds_norm, breaks= 100, xlim= c(5.5,5.8), main= "Normal Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Weibull Distribution 
+meds_weib= NA
+for(i in 1:10000){
+  data= rweibull(n,shape= weib_shap, scale= weib_scal)
+  meds_weib[i]= median(data)
+}
+
+hist(meds_weib, breaks= 100, xlim= c(5.5,5.75), main= "Weibull Medians: MLE", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+  
+```
+As you can see from the histograms, the sample medians from the all of the distribution are above the mean observed glycohemoglobin. 
+
+**5.  Calculated the range of middle 95% of sampling distribution, and explain why such a quantity is important.**
+
+Now, I will calculate the middle 95% of the sampling distribution. 
+
+```{r}
+# Range of Middle 95% of Sample Distribution
+
+#Gamma
+diff(quantile(meds_gamma, probs= c(0.025, 0.975)))
+
+#Normal
+diff(quantile(meds_norm, probs= c(0.025, 0.975)))
+
+#Weibull
+diff(quantile(meds_weib, probs= c(0.025, 0.975)))
+```
+
+The gamma distribution has the least variance, and the weibull distribution has the most variance.
+
+## Method of Moments
+
+Now that we are done exploring the MLE, we can try using the method of moments to find the same parameters for the three distributions. 
+
+### Height Data 
+
+First, we will explore the concept of method of moments using the height data from the data set. 
+
+**1. Show how to calculate estimates of parameters**
+
+```{r}
+# Parameters for Gamma 
+mm_gamma_shape= mean(d1$ht)^2/ var(d1$ht)
+mm_gamma_scale= var(d1$ht)/ mean(d1$ht)
+
+mm_gamma_shape
+mm_gamma_scale
+```
+
+The parameters for the gamma distribution can be found with the following formulas:
+
+$shape = \frac{mean(height)^2}{var(height)}, scale = \frac{var(height)^2}{mean(height)}$
+
+The shape of the gamma distribution using the method of moments is 480.22, and the scale is 0.3344 (MLE: shape= 480.38, scale=0.3343). The parameters are very close to the ones that we got from using the MLE. 
+
+```{r}
+# Parameters for Normal
+mm_normal_mean= mean(d1$ht)
+mm_normal_sd= sd(d1$ht)
+mm_normal_mean
+mm_normal_sd
+```
+
+The parameters for the normal distribution can be found with the following formulas:
+
+$mean = {mean(height)}, sd = {sd(height)}$
+
+The mean of the normal distribution using the method of moments is 160.6007 cm, and the standard deviation is 7.328699 (MLE: mean= 160.600738, sd= 7.327548). The parameters are very close to the ones that we got from using the MLE. 
+
+```{r}
+#Parameters for Weibull
+#shape= k
+#scale= lambda
+
+mm_weib_mean= function(lambda, k){
+  lambda* gamma(1+1/k)
+}
+mm_weib_var= function(lambda, k){
+  lambda^2*(gamma(1+2/k)-(gamma(1+1/k))^2)
+}
+
+# function to get lambda
+# Will need sample mean and k 
+lambda= function(samp.mean, k){
+  samp.mean/gamma(1+1/k)
+}
+
+#Doing system of equations to rewrite fnc
+mm_weib_var= function(samp.mean, k){
+  lambda(samp.mean, k)^2 *(gamma(1+2/k)-gamma(1+1/k)^2)
+}
+
+mm_weib_var= function(samp.mean, k, samp.var){
+  lambda(samp.mean, k)^2 *(gamma(1+2/k)-gamma(1+1/k)^2)- samp.var
+}
+
+#plot(x= seq(10, 40, by= 0.1), y= mm_weib_var(mean(d1$ht), k = seq(10, 40, by=0.1), samp.var= var(d1$ht)))
+
+mm_weib_optimize= optimize(f= function(x) {abs(mm_weib_var(k=x, samp.mean= mean(d1$ht), samp.var = var(d1$ht)))},lower= 10, upper= 100)
+# We have to take the absolute value since we want the lowest point as close to zero. After it hits zero it becomes negative, but we don't want those values. 
+
+# K (shape)
+mm_weib_k= mm_weib_optimize$minimum
+mm_weib_k
+# Lambda (scale)
+mm_weib_lambda= lambda(samp.mean= mean(d1$ht), k= mm_weib_k)
+mm_weib_lambda
+```
+
+The parameters for the weibull distribution are shape (k) and scale (lambda). The shape of the weibull distribution using the method of moments is 27.4 and the scale is 163.84 (MLE: shape= 22.45 , scale= 164.09). 
+
+**2. Provide visuals that show the estimated distribution compared to the empirical distribution ( I will comment on the quality of the fit).**
+
+Now, I will overlay the estimated PDF for each distribution onto the histogram of the height data. To find the PDF of each distribution, I inputted the parameters that I found in the previous question into the following functions: dnorm(), dgamma(), and dweibull(). 
+
+```{r}
+#  Overlay estimated pdf onto histogram 
+hist(d1$ht, main= "Height of Adult Females: MM", breaks= 100, freq= FALSE, ylim=c(0,0.07))
+curve(dnorm(x, mean= mm_normal_mean, sd= mm_normal_sd), add= T, col= "red", lwd= 2)
+curve(dgamma(x, shape= mm_gamma_shape, scale= mm_gamma_scale), add= T, col= "blue", lwd= 2)
+curve(dweibull(x, shape= mm_weib_k, scale= mm_weib_lambda), add= T, col= "green")
+legend("topright", inset= 0.025, legend= c("gamma PDF","normal PDF", "weibull PDF"), col= c ("blue", "red", "green"), lty= 1, lwd= 2, cex= 0.65)
+```
+
+From the plot above, we can see that the histogram fits the PDFs for the gamma distribution and the normal distribution the best. For both of these distributions the greatest likelihood is that the height is about 160 cm. The PDF for weibull is left-skewed, just like it was when we did the MLE. According to this PDF, the greatest likelihood is that the height is about 165 cm. 
+
+Now, I will overlay the estimated CDF onto the eCDF. 
+
+```{r}
+#Plot CDF onto eCDF
+
+plot(ecdf(d1$ht), col= "gray", main= "eCDF for Height: MM")
+curve(pgamma(x, scale= mm_gamma_scale, shape= mm_gamma_shape), add= TRUE, col= "red", lwd=2)
+curve(pnorm(x, mean= mm_normal_mean, sd= mm_normal_sd), add= T, col= "green", lwd= 2, lty= 2)
+curve(pweibull(x, shape= mm_weib_k, scale= mm_weib_lambda), add= T, col= "blue", lwd= 2, lty= 3)
+legend("bottomright", inset= 0.05 , legend= c("gamma CDF","normal CDF", "weibull CDF"), col= c ("red", "green", "blue"), lty= c(1,2,3), lwd= 2, cex= 0.65)
+```
+
+As you can see from the plot above, the CDFs for the gamma distribution and the normal distribution fit the eCDF the best. 
+
+Now, I will create Q-Q plot for each of the distributions. 
+
+```{r}
+## QQplots (sample vs estimated dist)
+# x values are the theoretical and y values are the data
+
+# Gamma Ditribution
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qgamma(p, shape= mm_gamma_shape, scale= mm_gamma_scale)
+
+plot(x,y, main= "Gamma QQ Plot")
+abline(0,1)
+
+# Normal Distribution 
+
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qnorm(p, mean= mm_normal_mean, sd= mm_normal_sd)
+
+plot(x,y, main= "Normal QQ Plot")
+abline(0,1)
+
+# Weibull Distribution
+
+p = ppoints(300)
+y = quantile(d1$ht, probs= p)
+x = qweibull(p, shape= mm_weib_k, scale= mm_weib_lambda)
+
+plot(x,y, main= "Weibull QQ Plot")
+abline(0,1)
+
+```
+
+As we can see from the Q-Q plots above, the height data most likely has either a normal distribution or a gamma distribution. 
+
+**3. Explain how to calculate the median from the estimated distribution.**
+
+To calculate the estimated median for each distribution we will once again use the following functions: qnorm(), qgamma(), and qweibull(). The parameters will be the parameters we found using the method of moments. The median value can be found where the probability is equal to 0.5.
+
+```{r}
+# Estimated Median 
+median(d1$ht)
+qnorm(0.5, mean= mm_normal_mean, sd= mm_normal_sd)
+qgamma(0.5, shape= mm_gamma_shape, scale= mm_gamma_scale)
+qweibull(0.5, shape= mm_weib_k, scale= mm_weib_lambda)
+```
+
+The median height observed in the data set is 160.6 cm. The medians from the normal and gamma distributions are closer to the sample median than the median from the weibull distribution.
+
+**4. Demonstrate how to generate the median sampling distribution**
+
+Now we will generate the medians sampling distribution for each distribution. Recall that the data contains 3015 observations, so the samples will as well. 
+
+```{r}
+# Median Sample Distribution (hist)
+n= nrow(d1)
+# 3015 rows in the data set
+
+#Gamma Distribution
+meds_gamma= NA
+for(i in 1:10000){
+  data= rgamma(n, shape= mm_gamma_shape, scale= mm_gamma_scale)
+  meds_gamma[i]= median(data)
+}
+
+hist(meds_gamma, breaks= 100, main="Gamma Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Normal Distribution
+meds_norm= NA
+for(i in 1:10000){
+  data= rnorm(n, mean= mm_normal_mean, sd= mm_normal_sd)
+  meds_norm[i]= median(data)
+}
+
+hist(meds_norm, breaks= 100, main= "Normal Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Weibull Distribution 
+meds_weib= NA
+for(i in 1:10000){
+  data= rweibull(n,shape= mm_weib_k, scale= mm_weib_lambda)
+  meds_weib[i]= median(data)
+}
+
+hist(meds_weib, breaks= 100, xlim= c(160.5, 162), main= "Weibull Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$ht), col="red", lwd= 3, lty= 4)
+legend("top", legend = "median(d1$ht)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+  
+```
+
+As you can see from the histograms, the sample medians from the weibull distribution are above the mean observed height. The median looks like it is either coming from the histogram for the normal distribution or the histogram for the gamma distribution.
+
+**5. Calculated the range of middle 95% of sampling distribution, and explain why such a quantity is important.**
+
+Now, I will calculate the middle 95% of the sampling distribution. This quantity is important because with a normal distribution about 95% of observations are within two standard deviations of the mean.
+
+```{r}
+# Range of Middle 95% of Sample Distribution
+
+#Gamma
+diff(quantile(meds_gamma, probs= c(0.025, 0.975)))
+
+#Normal
+diff(quantile(meds_norm, probs= c(0.025, 0.975)))
+
+#Weibull
+diff(quantile(meds_weib, probs= c(0.025, 0.975)))
+```
+
+### Glycohemoglobin Data
+
+Now we will explore the concept of method of moments using the 
+glycohemoglobin data from the data set. 
+
+**1. Show how to calculate estimates of parameters**
+
+Just as we saw with the height data, each distribution has a very specific set of parameters.
+
+```{r}
+# Parameters for Gamma 
+mm_gamma_shape= mean(d1$gh)^2/ var(d1$gh)
+mm_gamma_scale= var(d1$gh)/ mean(d1$gh)
+
+# Parameters for Normal
+mm_normal_mean= mean(d1$gh)
+mm_normal_sd= sd(d1$gh)
+
+#Parameters for Weibull
+#shape= k
+#scale= lambda
+
+mm_weib_mean= function(lambda, k){
+  lambda* gamma(1+1/k)
+}
+mm_weib_var= function(lambda, k){
+  lambda^2*(gamma(1+2/k)-(gamma(1+1/k))^2)
+}
+
+# function to get lambda
+# Will need sample mean and k 
+lambda= function(samp.mean, k){
+  samp.mean/gamma(1+1/k)
+}
+
+#Doing system of equations to rewrite fnc
+mm_weib_var= function(samp.mean, k){
+  lambda(samp.mean, k)^2 *(gamma(1+2/k)-gamma(1+1/k)^2)
+}
+
+mm_weib_var= function(samp.mean, k, samp.var){
+  lambda(samp.mean, k)^2 *(gamma(1+2/k)-gamma(1+1/k)^2)- samp.var
+}
+
+#plot(x= seq(5, 20, by= 0.1), y= mm_weib_var(mean(d1$gh), k = seq(5,20,  by=0.1), samp.var= var(d1$gh)))
+
+mm_weib_optimize= optimize(f= function(x) {abs(mm_weib_var(k=x, samp.mean= mean(d1$gh), samp.var = var(d1$gh)))},lower= 10, upper= 100)
+# We have to take the absolute value since we want the lowest point as close to zero. After it hits zero it becomes negative, but we don't want those values. 
+
+# K (shape)
+mm_weib_k= mm_weib_optimize$minimum
+# Lambda (scale)
+mm_weib_lambda= lambda(samp.mean= mean(d1$gh), k= mm_weib_k)
+```
+
+**2. Provide visuals that show the estimated distribution compared to the empirical distribution ( I will comment on the quality of the fit).**
+
+Once again, we will overlay the estimated PDF onto the histogram for the glycohemoglobin data.
+
+```{r}
+#  Overlay estimated pdf onto histogram 
+hist(d1$gh, main= "GH of Adult Females: MM", breaks= 100, freq= FALSE, xlim=c(4,10), ylim= c(0,1))
+curve(dnorm(x, mean= mm_normal_mean, sd= mm_normal_sd), add= T, col= "red", lwd= 2)
+curve(dgamma(x, shape= mm_gamma_shape, scale= mm_gamma_scale), add= T, col= "blue", lwd= 2)
+curve(dweibull(x, shape= mm_weib_k, scale= mm_weib_lambda), add= T, col= "green")
+legend("topright", inset= 0.025, legend= c("gamma PDF","normal PDF", "weibull PDF"), col= c ("blue", "red", "green"), lty= 1, lwd= 2, cex= 0.65)
+```
+
+From the plot above, we can see that the histogram most closely fits the PDFs for gamma distribution and the normal distribution. For both PDFs the greatest likelihood is that the glycohemoglobin is around 5.5.
+
+Now, I will overlay the estimated CDF onto the eCDF.
+
+```{r}
+#Plot CDF onto eCDF
+
+plot(ecdf(d1$gh), col= "gray", main= "eCDF for GH")
+curve(pgamma(x, scale= mm_gamma_scale, shape= mm_gamma_shape), add= TRUE, col= "red", lwd=2)
+curve(pnorm(x, mean= mm_normal_mean, sd= mm_normal_sd), add= T, col= "green", lwd= 2, lty= 2)
+curve(pweibull(x, shape= mm_weib_k, scale= mm_weib_lambda), add= T, col= "blue", lwd= 2, lty= 3)
+legend("bottomright", inset= 0.05 , legend= c("gamma CDF","normal CDF", "weibull CDF"), col= c ("red", "green", "blue"), lty= c(1,2,3), lwd= 2, cex= 0.65)
+```
+As you can see from the plot above, the CDFs for the gamma distribution and the normal distribution fit the eCDF the best
+
+Now I will create Q-Q plots for each of the distributions.
+
+```{r}
+## QQplots (sample vs estimated dist)
+# x values are the theoretical and y values are the data
+
+# Gamma Distribution
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qgamma(p, shape= mm_gamma_shape, scale= mm_gamma_scale)
+
+plot(x,y, main= "Gamma QQ Plot")
+abline(0,1)
+
+# Normal Distribution 
+
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qnorm(p, mean= mm_normal_mean, sd= mm_normal_sd)
+
+plot(x,y, main= "Normal QQ Plot")
+abline(0,1)
+
+# Weibull Distribution
+
+p = ppoints(300)
+y = quantile(d1$gh, probs= p)
+x = qweibull(p, shape= mm_weib_k, scale= mm_weib_lambda)
+plot(x,y, main= "Weibull QQ Plot")
+abline(0,1)
+```
+
+As we can see from the Q-Q plots above, the glycohemoglobin data does not have a strong fit with any of the three distributions. The Q-Q plot for the weibull distribution appears to have the worst fit out of the three distributions.
+
+**3. Explain how to calculate the median from the estimated distribution.**
+
+To calculate the estimated median for each distribution we can use the functions: qnorm(), qgamma(), and qweibull(). The median value can be found where the probability is equal to 0.5.
+
+```{r}
+# Estimated Median 
+median(d1$gh)
+qnorm(0.5, mean= mm_normal_mean, sd= mm_normal_sd)
+qgamma(0.5, shape= mm_gamma_shape, scale= mm_gamma_scale)
+qweibull(0.5, shape= mm_weib_k, scale= mm_weib_lambda)
+```
+
+The median glycohemoglobin observed in the data set is 5.5. All of the medians from the normal, gamma, and weibull distributions are greater than the sample median.
+
+**4. Demonstrate how to generate the median sampling distribution**
+
+Now, we will find generate the median sampling distribution for each distribution.
+
+```{r}
+# Median Sample Distribution (hist)
+n= nrow(d1)
+# 3015 rows in the data set
+
+#Gamma Distribution
+meds_gamma= NA
+for(i in 1:10000){
+  data= rgamma(n, shape= mm_gamma_shape, scale= mm_gamma_scale)
+  meds_gamma[i]= median(data)
+}
+
+hist(meds_gamma, breaks= 100, xlim= c(5.5,5.8), main="Gamma Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Normal Distribution
+meds_norm= NA
+for(i in 1:10000){
+  data= rnorm(n, mean= mm_normal_mean, sd=  mm_normal_sd)
+  meds_norm[i]= median(data)
+}
+
+hist(meds_norm, breaks= 100, xlim= c(5.5,5.8), main= "Normal Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+
+#Weibull Distribution 
+meds_weib= NA
+for(i in 1:10000){
+  data= rweibull(n,shape= mm_weib_k, scale= mm_weib_lambda)
+  meds_weib[i]= median(data)
+}
+
+hist(meds_weib, breaks= 100, xlim= c(5.5,5.80), main= "Weibull Medians: MM", xlab= "Simulated Medians")
+abline(v=median(d1$gh), col="red", lwd= 3, lty= 4)
+legend("topright", legend = "median(d1$gh)", col= "red", box.lty= 0,lwd= 3, lty= 4, cex=0.8)
+  
+```
+
+As you can see from the histograms, the sample medians from the all of the distribution are above the mean observed glycohemoglobin.
+
+**5. Calculated the range of middle 95% of sampling distribution, and explain why such a quantity is important.**
+
+Now, I will calculate the middle 95% of the sampling distribution.
+
+```{r}
+# Range of Middle 95% of Sample Distribution
+
+#Gamma
+diff(quantile(meds_gamma, probs= c(0.025, 0.975)))
+
+#Normal
+diff(quantile(meds_norm, probs= c(0.025, 0.975)))
+
+#Weibull
+diff(quantile(meds_weib, probs= c(0.025, 0.975)))
+```
+
+We can see that the weibull distribution has the least variance and the gamma distribution has the most variance.
+
+# Take-home Messages
+
+My main take-away is that MLE and method of moments are two great modeling tools. Maximum likelihood estimation is a tool that we can use to estimate the parameters of a probability distribution by _maximizing_ the _likelihood function_. The method of moments is a tool that we can use to estimate the parameters of a probability distribution by equating distribution moments (ex: population mean or population standard deviation) to sample moments (ex: mean or standard deviation). Using both methods we were able to see which distribution the data likely came from. I found the Q-Q plot to be especially helpful!
+
+Thanks for reading my blog! I hope you learned as much as I did :)!!
+

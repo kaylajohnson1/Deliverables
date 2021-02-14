@@ -1,0 +1,308 @@
+---
+title: "Order Statistics"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    number_sections: false
+    toc_depth: 3
+    toc_float: true
+---
+
+# Introduction
+
+Hello, and welcome to my blog! Since you are an expert at data science, I hope to show you something exciting today! In this blog post I will write some flexible functions for the distribution of order statistics. I will document these functions, so you can understand how to use them as well. You may even realize that skills like mine would be valuable on your data science team :)!
+
+## Which Quantile of a continuous distribution can one estimate with more precision?
+
+The median is an important quantity in data analysis. It represents the
+middle value of the data distribution. Estimates of the median, however,
+have a degree of uncertainty because (a) the estimates are calculated
+from a finite sample and (b) the data distribution of the underlying
+data is generally unknown. As a data scientist, I am able to 
+quantify and communicate the degree of uncertainty through data analysis. 
+
+In this blog, I will answer a series of
+questions related to the variation of the median (and a range of other
+quantiles). I will use analytic methods to answer the questions.
+
+# Background 
+
+If you have read my last blog post, you may recall that I discussed the concepts of Probability Density Functions (PDF) and Cumulative Distribution Functions (CDF). These concepts will be an essential part of this blog post as well. 
+
+## Probability Density Function
+
+- Probability Density Function: the probability density function is a function defines the probability distribution (the likelihood of an outcome). When we graph the PDF we can find the area under the curve in an interval to find the probability that a discrete random variable occurs.
+
+## Cumulative Distribution Function
+
+- Cumulative Distribution Function: the cumulative density function is a function that gives the probability that a random variable is less than or equal to the inputted variable of the function.
+
+
+# Methods
+
+## Question 1: Begin with the median from a sample of N = 200 from the standard normal distribution. Write an R function that is the density function for the median in this sample. Note that the 100th order statistic is approximately the median, and use the order statistic formula discussed in class. Generate a plot of the function.
+
+In this problem we are trying to find the probability density function for a standard normal distribution. As you know, the probability function defines probability distribution. If we plot this function, we will see the likelihood of each outcome. The three inputs of the density function are x, n, and k. X are the inputted x-values for the function. We can create a sequence of x-values and find the density of each value. N is the size of the sample. In this case, we have a sample of 200 so n= 200. K is the order statistic of interest. Since we are writing a density function for the median of the **standard normal distribution**, k is the middle of the sample (k=100).
+
+```{r}
+# PDF/ density function for the order statistic for the standard normal random variables
+dorder <- function(x, n, k){
+  k*choose(n,k)*
+    (pnorm(x)^(k-1)*
+       # standard normal, so mean of 0 and sd of 1
+    (1-pnorm(x))^(n-k))* 
+    dnorm(x)
+}
+
+#PDF plots 
+x= seq(-4,4, by= 0.1)
+
+# PDF with no specified n and k values 
+#plot(x, dnorm(x), type= "l", main= "Standard Normal Density", ylab= "Density")
+
+#PDF(n = 200, k= 100)
+plot(x, dorder(x, n = 200, k = 100), type= "l", main= "PDF of Median for Standard Normal Density", ylab= "Density")
+legend("right", legend = "dorder(x, n= 200,k= 100)", box.lty= 0, inset= 0.03)
+
+#PDF(n= 20, k = 10)
+plot(x, dorder(x, n = 20, k = 10), type= "l", main= "PDF of Median for Standard Normal Density", ylab= "Density")
+legend("right", legend = "dorder(x, n= 20,k= 10)", box.lty= 0, inset= 0.03)
+#shows how smaller sample size has a more gradual change 
+```
+
+When we plot the PDF for the median when the sample size is 200, we see that the medians are very concentrated around 0. This makes sense, because standard normal distributions are symmetric. The median and mean are 0. When we decrease the sample size to 20 and 10 is the order statistic, there is a more gradual change.    
+
+## Question 2: Write an R function that is the probability function for the median in this sample. Use the order statistic formula discussed in class. Generate a plot of the function.
+
+For this problem, we are trying to find the cumulative distribution function for the standard normal distribution. As you know, the CDF is a function that gives the probability that a random variable is less than or equal to the inputted variable of the function.
+
+```{r}
+#CDF 
+
+porder <- function(x, n, k){
+  1- pbinom(k-1, n, pnorm(x, 0,1), lower.tail= TRUE)
+}
+
+curve(porder(x, k= 100, n= 200), 
+      xlim= c(-1, 1), ylim=c(0.0,1.0), 
+      xlab= parse(text="X[(100)]"), ylab= "Probability", main= "CDF of Median for Standard Normal Distribution")
+```
+
+This plot shoes us that all median values fall between -0.25 and 0.25. For example if you ask me the question: What is the probability that the median is less than or equal to zero? Thanks to this plot I would say the answer is about 0.4. Wow, plotting the CDF is very helpful :)!
+
+## Question 3: Write an R function that is the quantile function for the median in this sample. (You have several options for how to write this function.) Generate a plot of the function.
+
+The quantile function for the median in the sample is the inverse of the CDF! The inputs of the **qorder()** function that I created below are p, n, and k. P are a sequence of probabilities. As I said previously, n is the sample size and k is the order statistic. The output of the function is a vector of x-values that correspond with each p-value in the inputted sequence of probabilities. 
+
+```{r}
+# Inverse CDF/ qorder function is the inverse of the porder fnc
+#for what value of x does porder minus probability equal zero? That value is the root?
+p <- seq(0, 1, by = 0.01)
+
+qorder <- function(p, n, k){
+  #inputs of function are probabilities
+  out <- p
+  for(i in seq_along(p)){
+    out[i] <- uniroot(function(x){porder(x, n, k) - p[i]}, c(-100, 100))$root
+    # vector of the x values for each p-value in the sequence
+    # What x-value would we need to give porder to get the inputted probability?
+ }
+  out
+  #outputs are x-values 
+}
+
+p <- seq(0.05, 0.95, by = 0.01)
+
+plot(p, qorder(p, n= 200, k= 100), type="l")
+```
+
+## Question 4: Simulate the sampling distribution for the median. Create a plot of the empirical CDF (ECDF). Overlay the plot of the ECDF with a plot of the CDF.
+
+For this problem, we are first tasked with simulating the sampling distribution for the median. Since we have been using the standard normal distribution, I used the function **rnorm()** to generate data points (sample size is 200). The median of the data is then added to a vector of medians. 
+
+```{r}
+#simulated medians
+meds_norm= NA
+for(i in 1:10000){
+  data= rnorm(n=200)
+  meds_norm[i]= median(data)
+}
+
+#CDF and ECDF
+plot(ecdf(meds_norm), col= "gray", main= "eCDF and CDF for Medians", ylab= "Probability", lwd= 3)
+curve(porder(x, k= 100, n= 200), add= TRUE, col= "red", lwd= 3, lty= 2)
+legend("right", legend = c("ECDF", "CDF"), col= c("grey","red"), box.lty= 1,lwd= 3, lty= c(1,2), cex=1, inset= 0.03)
+```
+
+I used the **ecdf()** function in R to plot the eCDF of the simulated medians. I then used the **porder()** function that I created, to plot the CDF. The CDF for the normal distribution fits the eCDF very well!
+
+## Question 5: Using the simulated sampling distribution from the previous question, create a histogram (on the density scale). Overlay the histogram with a plot of the density function.
+
+We can also use the density to see if our two plots fit the same distribution. First, I can create a histogram of the simulated medians. Then, I can overlay the histogram with a density plot. 
+
+```{r}
+hist(meds_norm, freq = FALSE, main= "Density of Simulated Medians", xlab= "Median")
+curve(dorder(x, k= 100, n= 200), add= TRUE, col= "red", lwd= 3, lty= 2)
+legend("right", legend = "PDF", col= "red", box.lty= 1,lwd= 3, lty= 2, cex=1, inset= 0.03)
+```
+
+I used the **dorder()** function that I created, to overlay the PDF onto the histogram of the simulated medians. The PDF of the normal distribution also fits the histogram very well!
+
+## Question 6: One very common way to compare a random sample to a theoretical candidate distribution is the QQ plot. It is created by plotting quantiles of the theoretical distribution on the x-axis and empirical quantiles from the sample on the y-axis.
+
+For this question, we are tasked with creating a Q-Q plot. I am a huge fan of Q-Q plots, because they enable us to plot the quantiles for the sampling distribution against those of the estimated distribution. If the points that are plotted against each other have the same values, then it is likely that the data has that corresponding distribution.
+
+```{r}
+# QQ Plot for sample distribution vs. estimated distribution
+p = ppoints(200)
+#estimated distribution 
+y = quantile(meds_norm, probs= p)
+#sampling distribution
+x = qorder(p, n= 200, k= 100)
+
+
+plot(x,y, main= "QQ Plot for Medians", ylab= "Sample Quantile", xlab= "Theoretical Quantile")
+abline(0,1)
+```
+
+I used the **quantile()** function in R to find the quantiles for the simulated medians. I then used the **qorder()** function that I created to find the quantiles for the sampling distribution. Since the points are lined up on the **abline**, it looks like the values correspond with each other!
+
+## Question 7: Modify the dorder, porder, and qorder functions so that the functions take a new parameter k (for the kt**h order statistic) so that the functions will work for any order statistic and not just the median.
+
+When I originally created the dorder, porder, and qorder functions, I was only using them for the median (k=n/2) of a sample size of 200 (n=200). So, the value of k was consistently 100. We can also use the functions that I created with different order statistics. In the next question we can try changing the value of k!
+
+```{r}
+# Dorder for the kth order statistic 
+dorder <- function(x, n, k){
+  k*choose(n,k)*
+    (pnorm(x)^(k-1)*
+       # standard normal, so mean of 0 and sd of 1
+    (1-pnorm(x))^(n-k))* 
+    dnorm(x)
+}
+
+# Porder for the kth order statistic 
+porder <- function(x, n, k){
+  1- pbinom(k-1, n, pnorm(x, 0,1), lower.tail= TRUE)
+}  
+# Qorder for the kth order statistic
+qorder <- function(p, n, k){
+  #inputs of function are probabilities
+  out <- p
+  for(i in seq_along(p)){
+    out[i] <- uniroot(function(x){porder(x, n, k) - p[i]}, c(-100, 100))$root
+    # vector of the x values for each p-value in the sequence
+    # What x-value would we need to give porder to get the inputted probability?
+ }
+  out
+  #outputs are x-values 
+}
+
+```
+
+## Question 8: Generate the QQ plot for simulated data from the sampling distribution of the sample max and the theoretical largest order statistic distribution.
+
+This time we are creating the Q-Q plot for the simulated **maximum** from the sampling distribution and the theoretical largest order statistic. We will have to change the value of k in my **qorder()** function for this problem!
+
+```{r}
+#Simulated maximums
+max_norm= NA
+for(i in 1:10000){
+  data= rnorm(n=200)
+  max_norm[i]= max(data)
+}
+
+# QQ Plot for sample distribution vs. estimated distribution
+p = ppoints(200)
+#estimated distribution 
+y = quantile(max_norm, probs= p)
+#sampling distribution (200th order statistic is the largest)
+x = qorder(p, n= 200, k= 200)
+
+
+plot(x,y, main= "QQ Plot for Maximums", ylab= "Sample Quantile", xlab= "Theoretical Quantile")
+abline(0,1)
+```
+
+I used the **quantile()** function in R to find the quantiles for the simulated maximums. I then used the **qorder()** function that I created to find the quantiles for the sampling distribution. The largest order statistic in a sample of size 200 is the 200th order statistic, so k was 200. Since the points are lined up on the **abline**, it looks like the values correspond with each other!
+
+## Question 9: Modify the dorder, porder, and qorder functions so that the functions take new parameters dist and so that the functions will work for any continuous distribution that has d and p functions defined in R.
+
+So far, we have only been using the *standard normal distribution*. In fact, I initially created my functions using some of R's built-in functions for normal distributions. So how can we change these function so they work for any continuous distribution that has density and probability functions defined in R?
+
+My functions below enable the user to specify a distribution. Don't worry! If a distribution is not specified then we still have the normal distribution as the default. If another distribution is specified, then the user also has to input any required parameters. For example, if they use these functions for the gamma distribution the parameter **shape** has to be included. 
+
+```{r}
+# Modified dorder function 
+mod.dorder <- function(x, n, k, dist= "norm", ...){
+  
+  
+  pf <- get(paste0("p", dist))
+  df <- get(paste0("d", dist))
+  
+  k*
+    choose(n,k)*
+    pf(x, ...)^(k-1)*
+    (1-pf(x, ...))^(n-k)
+    df(x, ...)
+}
+
+
+# Modified porder function
+mod.porder <- function(x, n, k, dist= "norm", ...){
+  
+  pf <- get(paste0("p", dist))
+  
+  pbinom(k-1, n, pf(x, ...), lower.tail= FALSE)
+}
+
+# Modified qorder function 
+mod.qorder <- function(p, n, k, dist = "norm", ...){
+  out <- p
+  for(i in seq_along(p)){
+    out[i] <- uniroot(function(x){porder(x, n, k, dist, ...) - p[i]}, c(-100, 100))$root
+  }
+  out
+}
+
+plot(ecdf(meds_norm), col= "gray", main= "eCDF and CDFs for Medians", ylab= "Probability", lwd= 3, xlim= c(-0.1, 0.3))
+curve(mod.porder(x, k= 100, n= 200, dist= "gamma", shape=0.3), add= TRUE, col= "blue", lwd= 3, lty= 3)
+curve(porder(x, k= 100, n= 200), add= TRUE, col= "red", lwd= 3, lty= 2)
+legend("right", legend = c("ECDF (Normal Dist.)", "Normal CDF", "Gamma CDF"), col= c("grey","red", "blue"), box.lty= 1,lwd= 3, lty= c(1,2,3), cex=1, inset= 0.03)
+
+```
+
+We can plot the CDF to test the modified function. As you see, the CDF for the normal distribution lines up with the eCDF. The CDF for the gamma distribution does not line up with the eCDF.
+
+## Question 10: Use the newly modified functions to plot the probability and density functions for the sample min (N = 200).
+
+Lastly, we can use the modified functions to plot the probability and density functions for the sample **minimum**. For this problem, we will have to change the value of **k** in the **porder()** and **dorder()** functions that I created. 
+
+```{r}
+#Simulated minimums
+min_norm= NA
+for(i in 1:10000){
+  data= rnorm(n=200)
+  min_norm[i]= min(data)
+}
+
+plot(ecdf(min_norm), col= "gray", main= "eCDF and CDFs for Minimums", ylab= "Probability", lwd= 3, xlim= c(-4,-2))
+curve(mod.porder(x, k= 1, n= 200), add= TRUE, col= "blue", lwd= 3, lty= 3)
+legend("right", legend = c("ECDF", "CDF"), col= c("grey","blue"), box.lty= 1,lwd= 3, lty= c(1,2), cex=1, inset= 0.03)
+
+
+hist(min_norm, freq = FALSE, main= "Density of Simulated Minimms", xlab= "Minimum")
+curve(dorder(x, k= 1, n= 200), add= TRUE, col= "red", lwd= 3, lty= 2)
+legend("left", legend = "PDF", col= "red", box.lty= 1,lwd= 3, lty= 2, cex=1, inset= 0.03)
+```
+
+Since we are working with minimums now, our order statistic is the first (k=1). I used the **dorder()** function that I created, to overlay the PDF onto the histogram of the simulated minimums. The PDF of the normal distribution fits the histogram very well!
+
+# Conclusions 
+
+I know this has been a long blog, but we finally have made it to the end. It looks like our new functions are working well. Instead of only working for the medians of the normal distribution, the functions can now handle all order statistics of many continuous distributions. That sounds pretty **amazing** to me! 
+
+I learned a lot while writing this blog. We explored some old concepts like **PDF** and **CDF**. I also got to practice making Q-Q plots. And of course, making and modifying my own functions was a challenge! I hope you enjoyed your time reading this blog. Please let me know when you are hiring. I hope to work with you soon!

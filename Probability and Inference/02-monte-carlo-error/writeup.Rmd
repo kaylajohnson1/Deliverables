@@ -1,0 +1,299 @@
+---
+title: "Monte Carlo Error"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    number_sections: false
+    toc_depth: 3
+    toc_float: true
+---
+```{r include=FALSE}
+#These are the libraries that I will be using in this deliverable 
+
+library(dplyr)
+require(magrittr)
+library(knitr)
+library(tgsify)
+```
+
+# Introduction
+
+Every day we are tasked with making decisions. Sometimes those decisions have big impacts, and sometimes they do not. Nevertheless, we want to minimize how erroneous we are in our decision making. As a data scientist, this is especially important for me. Every day, more and more companies turn to data scientists to help them make decisions. Good decisions will give a company an edge over their competitors. Sadly, a company may not be able to bounce back from a bad decision. My job is high-risk but also high-reward, because it is my mission to help the companies I work with succeed!
+
+Disclaimer: Throughout this blog post I will **repeat** the word **"replications"** many times. Sorry, I am not trying to annoy you! This word should become engraved in your mind (and for a good reason). Replications are very important, and I hope to show you why! 
+
+## With the concepts of absolute and relative error I will:
+
+1. Explain why the concepts are important
+2. introduce key vocabulary terms, and
+3. Demonstrate the concepts in action
+
+# Background 
+
+**Monte Carlo Error- The relationship between replications and simulation error** 
+
+In this blog, I will demonstrate the concepts of absolute error and relative error when estimating probabilities from simulation.
+
+I will perform a 14 X 5 factorial experiment
+simulation that estimates the error for each combination of replicate
+number (2<sup>2</sup>, 2<sup>3</sup>, …, 2<sup>15</sup>) and probability
+(0.01, 0.05, 0.10, 0.25, 0.50).
+
+Key terms (other terms that will be repeated a lot): **simulation**, **p̂**, **p**, **absolute error**, **relative error**,  **Monte Carlo error**, **sample size**
+
+## Absolute Error
+
+Simulations generate approximate answers, and there is some degree of error between these approximations and the actual answers. This is **absolute error**. When only a small number of replications of a simulation are done, there is usually a lot of error between the actual answer and the approximate answer. However, increasing the number of replications minimizes the error. I will write some code to show you how increasing the number of replications impacts the absolute error. The plots alone will motivate you to ensure that you always do many replications of your simulations!
+
+### Absolute Error Formula
+
+Absolute Error is calculated as: 
+
+**absolute error** = \|*p̂*−*p*\|
+
+*p̂* is the approximate probability, and *p* is the actual probability.
+
+### Absolute Error in Action
+Before we jump into the code, I would like to give you an example that will help you better understand the concept of absolute error. Imagine that you are supposed to be taking measurements of your office so that you can order new furniture. You are in a rush to put in the order, so you approximate that your current desk is 6 feet wide. You order a new desk that is 6 feet wide but it does not fit in your office! Unfortunately, the  old desk was only 5.5 feet wide!
+
+**Absolute Error = \| 6 feet _(approximate width)_ - 5.5 feet _(actual width)_\| = 0.5 feet**
+
+In this case ordering the wrong desk just wasted your time, but there are many situations when an absolute error of .5 can have a grave impact. **Replications** will help you avoid these mistakes. 
+
+## Relative Error
+
+Relative error is the ratio of the absolute error of a measurement to the actual measurement. We can find this by dividing the absolute error by the actual measurement.
+
+### Relative Error Formula
+
+Relative Error is calculated as:
+
+**relative error** = \|*p̂*−*p*\|/*p
+
+*p̂ *is the approximate probability, and *p* is the actual probability
+
+### Relative Error in Action
+
+We can calculate the relative error of the information from our previous example. We get:
+
+**Relative Error = \| 0.5 _(absolute error)_\|/ 5.5 _(actual measurement)_ = 0.0909**
+
+# Methods
+
+## The parameters for this simulation are:
+
+**R**- Number of replicates
+
+**sample size (ss)**- Size of the data that's analyzed when calculating absolute error and relative error 
+
+**p**- The underlying true probability
+
+These parameters will be explained better as we develop our simulation.
+
+```{r}
+# Simulation Parameters
+R <- 5000 
+  # Number of replicates
+
+# input type- parameters (a list)
+parameters <- list(R = 5000, ss = 4, p = .1)
+# The parameters will be inputted into the simulation. R is the number of replicates. The number that I am going to use for the simulation
+
+parameters
+```
+The value for replicates is 5000, the value for sample size is 4, and the value for the true probability is 0.1.
+
+Before we can run the simulation that shows the relationship between sample size and error, we must create some functions. 
+
+## create_data_estimate_p
+
+```{r}
+#Process 
+# Generating binomial Random Variable of a specific sample size and specific probability 
+
+create_data_estimate_p <- function (parameters) {
+  #create_data_estimate_p is a function that takes the parameters (list object). The output of the function will be phat values.
+  parameters$phat <- rbinom(parameters$R,parameters$ss, parameters$p)/parameters$ss
+  #rbinom() can simulate the outcome of Bernoulli trials (success vs. failures). It has three inputs (n, size, and probability). n is the number of observations, p is the probability, and size is the number of trials. The output is the phat values.
+  parameters
+}
+```
+
+The first funtion is **create_data_estimate_p**, which is a function that takes the parameters of the simulation and returns the *p̂* values. Here I use the rbinom() function to generate binomial random variables with a specific sample size and probability. It takes three inputs (n, size, and probability). **n** is the number of observations, **p** is the probability, and **size** is the number of trials.
+
+## absolute_error
+
+```{r}
+absolute_error <- function(parameters){
+  # a function that takes the parameters object and returns the absolute error. 
+  abs(parameters$phat - parameters$p)
+  # abs() takes the absolute value of phat - p
+}
+```
+
+The **absolute_error** function takes the parameters as inputs and returns the absolute errors. The absolute error is calculated by taking the **absolute value** of the difference between the approximate probability and the true probability. The absolute error should not be negative, since we take the absolute value of the difference.
+
+## one_p_n
+
+```{r}
+#Repeat
+#   Distributions
+
+one_p_n <- function(parameters){ 
+  # one_p_n is a function that takes the parameters as an input.
+ae <- parameters %>% create_data_estimate_p %>% absolute_error
+  # The absolute error is found when we create our phat values from our parameters using create_data_estimate_p.. We then apply the absolute error function.
+  re <- ae/parameters$p
+  # Relative error is the absolute error divided by the true probability.
+  mae <- mean(ae)
+  # We find the mean absolute error (mae) using the mean() function.
+  mre <- mean(re)
+  # We find the mean relative error (mre) using the mean() function
+  c(mae, mre)
+  # This returns a vector with the mean absolute  error and the mean relative error
+}
+one_p_n(parameters)
+```
+
+The **one_p_n** function takes the parameters as inputs and returns a vector containing the mean absolute error and the mean relative error. In this function we first use our previously created functions (**create_data_estimate_p** and **absolute_error**). Chaining our previous functions to the parameters allows us to get the absolute error values for the entire data frame. We are then able to calculate the relative error by dividing the absolute error by the true probability. We can get the mean absolute error and mean relative error by taking the mean of the absolute error and relative error values. In the end, we have our vector with the mean absolute error and mean relative error. Now, we only have one value for each because we are only working with one sample size and one probability. In our simulation, you will see that these values change depending on sample size and probability.
+
+## simulation_settings data frame
+
+Now that we have our functions set up, let's create a data frame that will contain all of our information. 
+```{r}
+simulation_settings <- expand.grid( 
+  # This is a simulation settings data frame that is given all of the parameters
+  R = 5000
+  # Replications are set at 5000
+  , p = c(0.01, 0.05, 0.1, .25, .5)
+  # The underlying true probability is a vector with these 5 values.
+  , ss = 2^(2:15)
+  # Sample size is 2^(2:15), which is 2^2, 2^3,...,2^14,2^15
+  , mae = NA_real_ 
+  # There will be a column for the mean absolute error. These cells will be empty at first, since these values need to be calculated.
+  , mre = NA_real_
+  # There will be a column for the mean relative error. These cells will be empty at first, since these values need to be calculated.
+  , KEEP.OUT.ATTRS = FALSE
+  # If this is TRUE then the returned data.frame contains information from the vectors that were inputted.
+)
+head(simulation_settings)
+# This data frame gives all possible combinations of the values in the vector
+```
+The data frame will be called **simulation_settings** and every row will have all possible combinations of the parameters and the corresponding mean absolute errors and mean relative errors. The first parameter that is included in the data frame are replications (R) which are set at 5000. The next parameter is the underlying true probability which is set at five different values (0.01, 0.05, 0.1, .25, .5). The next parameter is sample size which are the numbers between 2^(2:15). 2 is raised to the numbers between 2 and 15. Since the mae and mre have to be calculated I put **NA_real_** (to show that these cells are missing values). 
+
+```{r}
+for( i in 1:nrow(simulation_settings)){
+  #simulation_settings is a data frame with 70 rows and we want our for loop to go through every row of the data frame.
+  simulation_settings[ i, c("mae", "mre")] <-
+  # We want to add the mean absolute error and mean relative error to each row of the simulation settings data frame. There are 70 total rows.
+    simulation_settings [i, ] %>% as.list %>% one_p_n
+  #  we use as.list to return a list of the simulation settings, and one_p_n gives us the mae and mre for each row of the data frame. 
+}
+
+head(simulation_settings)
+#If we look at our data frame again, we will see that the values for mae and mre have been added. 
+```
+Now, that we have the data frame set up, we can add the values for mae and mre to each row. Simulation setting is a data frame with 70 rows, so we want our for loop to go through every single row of the data frame.We use **as.list** to return a list of the simulation settings, and our function **one_p_n** gives us the mae and mre for each row of the data frame. If we look at the data frame again, those values will be filled in. Now it is easier to see how sample size impacts the mae and mre. This data frame is helpful, but I think that plots show the relationships better. 
+
+# Let's visualize it!
+
+## Mean Absolute Error
+
+First, we will plot the mean absolute error and it's relationship to the sample size. The y -axis of the plot displays the **mean absolute error**, and the x- axis of the plot contains the **sample size** on a log 2 scale. The legend on the plot shows the color that corresponds with each true probability. When the true probability is 0.5, the mean absolute error is the highest. This error decreases as we increase the sample size. In fact, the error for all of the true probabilities gradually decreases. When the true probability is 0.01, there is less of a change in mean absolute error, but there is a decrease there as well. 
+```{r}
+## Plot
+require(tgsify)
+# This is a package created by Dr. Stewart
+simulation_settings %>% 
+  # we are plotting the simulation setting data frame
+  mutate(col = factor(p) %>% as.numeric) %>% 
+  # the values for true probability are factored and and their numeric values correspond to different colors
+  plotstyle(upright, mar =c(3,3, 2,1)) %>% 
+  # This gives an upright plot with adjusted margins to make room for labels.
+  plot_setup(mae  ~ log(ss, base = 2)) %>% 
+  # the x- axis of the plot contains the mae and the y-axis contains the sample size on a log2 scale
+  split(.$p) %>% 
+    # This function splits the simulation_settings data frame into groups by p (true probabilities).
+  lwith({
+    #this function repeats a set of commands for every element of a list
+    lines(log(ss, base = 2), mae, type = "b", col= col[1], lwd = 4)
+    c(p[1], col[1])
+    # lines() takes points and joins them with line segments. The coordinates are based off of the mae and the sample size. The line segments are the same colors as the points they correspond to and the width for the lines is 4
+  }) %>% 
+  do.call("rbind", .) %>% 
+  # calls the function rbind which binds data frames by rows
+  (function(x){
+    legend("topright", legend = "p = " %|% x[,1],col=x[,2],lwd = 4, bty = "n")})
+# the legend contains the values and colors for the true probabilities. the with of the lines that show the colors are 4. There is not a box around the legend, since bty = "n".
+box() 
+# The whole plot is in a box
+axis(side = 1, at = axTicks(1), labels = 2^axTicks(1))
+axis(2)
+title(main = "The Relationship Between Sample Size & Mean Absolute Error")
+# This plot shows the relationship between ss and mae
+title(ylab = "MAE", line = 2)
+# The y- axis contains the mean absolute error
+title(xlab = expression("Sample size (log"[2]*"scale)"), line =1.5)
+# The x-axis contains sample size on a log2 scale
+```
+**In summary**: The mean absolute error decreases as we increase the sample size for the simulation.
+
+## Mean Relative Error
+
+Now, we will plot the mean relative error and it's relationship to the sample size. The y -axis of the plot displays the **mean relative error**, and the x- axis of the plot contains the **sample size** on a log 2 scale. The legend on the plot shows the color that corresponds with each true probability. When the true probability is 0.5, the mean relative error is the lowest. This is the opposite of what we saw with the plot for the mean absolute error. If we look at the formula for mean relative error we can better understand why this is.
+
+**relative error** = \|*p̂*−*p*\|/*p.
+
+Let's pick two true probabilities (0.5 and 0.1). and let's pick one approximate probability (0.4).
+
+**For true probability of 0.5:** |0.4−0.5\|/0.5.= 0.2
+
+**For true probability of 0.1:** |0.4−0.1\|/0.1.= 3
+
+When the true probability is smaller, the error is bigger relative to it. 
+
+Just as we saw in the plot for mean absolute, the mean relative error also decreases as we increase the sample size. In fact, the error for all of the true probabilities gradually decreases. When the true probability is 0.05, there is less of a change in mean relative error, but there is a decrease there as well. 
+```{r}
+##Plot
+simulation_settings %>% 
+  # we are plotting the simulation setting data frame
+  mutate(col = factor(p) %>% as.numeric) %>% 
+  # the values for true probability are factored and and their numeric values correspond to different colors
+  plotstyle(upright, mar =c(3,3, 2,1)) %>% 
+   # This gives an upright plot with adjusted margins to make room for labels.
+  plot_setup(mre ~ log(ss, base = 2)) %>% 
+  # the x- axis of the plot contains the mre and the y-axis contains the sample size on a log2 scale
+  split(.$p) %>% 
+  # This function splits the simulation_settings data frame into groups by p (true probabilities).
+  lwith({
+    #this function repeats a set of commands for every element of a list
+    lines(log(ss, base = 2), mre, type = "b", col= col[1], lwd = 4)
+    c(p[1], col[1])
+    # lines() takes points and joins them with line segments. The coordinates are based off of the mre and the sample size. The line segments are the same colors as the points they correspond to and the width for the lines is 4
+  }) %>% 
+  do.call("rbind", .) %>% 
+  # calls the function rbind which binds data frames by rows
+  (function(x){
+    legend("topright", legend = "p = " %|% x[,1],col=x[,2],lwd = 4, bty = "n")})
+  # the legend contains the values and colors for the true probabilities. the with of the lines that show the colors are 4. There is not a box around the legend, since bty = "n".
+box() 
+# The whole plot is in a box
+axis(side = 1, at = axTicks(1), labels = 2^axTicks(1))
+axis(2)
+title(main = "The Relationship Between Sample Size & Mean Relative Error")
+# This plot shows the relationship between ss and mre
+title(ylab = "MRE", line = 2)
+# The y- axis contains the mean relative error
+title(xlab = expression("Sample size (log"[2]*"scale)"), line =1.5)
+# The x-axis contains sample size on a log2 scale
+
+```
+**In summary**: The mean relative error decreases as we increase the sample size for the simulation.
+
+# Conclusions 
+
+I hope seeing this concept in action has convinced you that it is really important to increase the **sample size** when doing **simulations**. It definitely has convinced me! Before I did this simulation, I was still a little unsure about the impact that the sample sizes that I choose have. Now, I know that choosing large sample sizes is important for minimizing **mean absolute error** and **mean relative error**. I also now know that higher true probabilities have higher mean absolute errors but lower mean relative errors. If I did something right, we both learned a lot! Thank you for reading my blog, and good luck finding the best data scientist for the company. 
+

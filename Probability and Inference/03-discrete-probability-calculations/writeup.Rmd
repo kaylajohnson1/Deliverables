@@ -1,0 +1,269 @@
+---
+title: "World Series writeup"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    number_sections: false
+    toc_depth: 3
+    toc_float: true
+---
+```{r global options, include = FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(dplyr)
+```
+
+# Introduction
+
+## How often does the better team win the World Series?
+
+How often does the better team win the World Series? This is a tough question! I'm personally not a fan of baseball, so I'll have to do some research to better understand how a team can win the entire World Series. Before I do the research, I'll make a quick guess. I think the better team wins **most** of the time. But what exactly is **most** of the time? Ok...  this question is harder to answer than I thought, but we will work through solving it together! 
+
+In this assignment, I am tasked with using the rules of **probability** and **discrete probability functions** to answer questions about the World Series. 
+A quick Google search has informed me that the World Series is a **best-of-7** matchup between the champions of the American and National Leagues of Major League Baseball (I will keep this in mind when I answer the questions). 
+
+## *Details for the World Series*
+
+1. The **Braves** (Atlanta) and the **Yankees** (New York City) compete to see who will win. 
+2. In any given game, the probability that the Braves win is *P*<sub>*B*</sub> and the probability that the Yankees win is
+    *P*<sub>*Y*</sub> = 1 − *P*<sub>*B*</sub>.
+
+## *Some questions that will be answered are:*
+
+1. What is the probability that the Braves win the World Series given that *P*<sub>*B*</sub> = 0.55?
+
+2. What is the probability that the Braves win the World Series given that *P*<sub>*B*</sub> = x? This will be a figure with *P*<sub>*B*</sub> on the x-axis and P(Braves win World Series) on the y-axis.
+
+3. Suppose one could change the World Series to be best-of-9 or some other best-of-X series. What is the shortest series length so that P(Braves win World Series|PB = .55) ≥ 0.8?
+
+4. What is the shortest series length so that P(Braves win World Series|*P*<sub>*B*</sub> = x) ≥ 0.8? This will be a figure with *P*<sub>*B*</sub> on the x-axis and series length is the y-axis.
+
+5. Calculate P(*P*<sub>*B*</sub> = 0.55|Braves win World Series in 7 games) under the assumption that either *P*<sub>*B*</sub> = 0.55 or *P*<sub>*B*</sub> = 0.45. 
+
+# Background
+
+Here are some very important concepts that will help us answer the questions about the World Series. I will explain them while working through the problems as well, but feel free to return here if you want to look back at the definitions!
+
+## Binomial Distribution
+
+The World Series has a **negative binomial distribution**, but I will first explain the rules of a **binomial distribution** since the two are very similar. I will use the example of <span style="color: purple;"> flipping a fair coin </span>, to better explain this concept.
+
+Here are the rules of a binomial distribution:
+
+**1.** The **number** of trials is fixed. <span style="color: purple;"> I am flipping a fair coin **10** times. </span> 
+
+**2.** There are two possible outcomes for each trial. These outcomes are described as successes and failures. <span style="color: purple;"> The desired outcome is landing on heads so **heads = success**. </span> 
+
+**3.** The number of successes is are being counted within our fixed number of trials. In a binomial distribution this is a **random variable**. <span style="color: purple;"> When flipping the coin 10 times, I want to know **how many times** I land on heads. </span> 
+
+**4.** Each trial is **independent**. <span style="color: purple;"> The outcome of one coin flip does not impact the outcome of another. </span> 
+
+**5.** The probability of success is the same from trial. <span style="color: purple;"> The probability of landing on heads is the same throughout all 10 of my coin flips. </span> 
+
+### Random Variables 
+
+A **random variable** is a set of possible numerical values for random events. When we have a two-sided coin, we can assign one value to heads and another value to tails. For example, we can assign 1 to heads and 0 to tails. If we get 6 heads and 4 tails than the random variable is 6 = ((6 x 1) + (4 x 0)).
+
+## Negative Binomial Distribution
+
+The World Series follows the rules of a negative binomial distribution because:
+
+**1.** The **number of trials** is not a fixed number. In a negative binomial distribution this is a **random variable**. The World Series can be up to 7 games long, but it ends whenever one team wins 4 total times. This can happen between the fourth and seventh game.
+
+**2.** There are two possible outcomes for each trial/ game. These outcomes are described as successes and failures. In the World Series, winning a game is a **success** and losing a game is a **failure :(** . 
+
+**3.** There is a **required number of successes**. There or 4 required successes (games won) in the World Series. This is our stopping rule (this concept might sound familiar if you've read any of my previous blogs)! Our experiment (the World Series) has 7 repeated trials but the experiment stops early if a team wins 4 games before the last trial.
+
+**4.** Each game is **independent**. The outcome of one game does not impact the outcome of another. 
+
+**5.** The **probability of success** (winning a game) is the same from game to game. 
+
+## Bayes' Thereom 
+
+Bayes' Theorem will help us answer our 5th question, since it is a way to find a probability when we know certain other probabilities. 
+
+The formula for Bayes' Theorem is: 
+
+$$ P(A|B) = \frac{P(A) P(B|A) }{P(B)} $$
+Here is what the formula tells us:
+
+- **P(A|B)** is the probability that A happens given that B happens.
+
+- **P(B|A)** is the probability that B happens given that A happens.
+
+- **P(A)** is the probability that A happens.
+
+- **P(B)** is the probability that B happens.
+
+# Methods
+
+**Let's start answering some question!**
+
+## 1. What is the probability that the Braves win the World Series given that *P*<sub>*B*</sub> = 0.55?
+
+$$P(\text{Braves win the World Series})$$
+
+$$= {6\choose 3} 0.55^4(1-0.55)^3 + {5\choose 3} 0.55^4(1-0.55)^2 + {4\choose 3} 0.55^4(1-0.55)+ 0.55^4= 0.6083 $$
+This is a chain of probabilities based on the different possible outcomes. There are 7 total games in the World Series, but the champion only has to win 4 out of 7 of the games. One possibility is that the 7 total games are played (champion wins 4 games and the other team wins 3 games). The second possibility is that 6 total games are played (champion wins 4 games and the other team wins 2 games. The third possibility is that 5 total games are played (champion wins 4 games and other team wins 1 game). The fourth and last possibility is that the champion wins all 4 out of the 4 games played (other team does not win any games).
+
+### Why choose 3 when champion must win 4?
+
+When 7 games are being played we do 6 choose 3 which represents winning 3 out of the first 6 games and then winning the 7th game.If I use the vocabulary for negative binomial distributions there are 3 fails before the 4th success. If 4 games are won before the last game is played, then there is not a reason for 7 games to be played.  
+
+```{r}
+choose(6,3)*((0.55^3)*(1-0.55)^3)*0.55 + choose(5,3)* ((0.55^3)*(1-0.55)^2)*0.55 +  choose(4,3)*((0.55^3)*(1-0.55))*0.55+ 0.55^4
+```
+
+## 2. What is the probability that the Braves win the World Series given that *P*<sub>*B*</sub> = x?
+
+```{r}
+x <- seq(0.5, 1, .01)
+y= choose(6,3)*((x^3)*(1-x)^3)*x + choose(5,3)* ((x^3)*(1-x)^2)*x +  choose(4,3)*((x^3)*(1-x))*x+ x^4
+y
+
+plot(x,y, main= "Probability of Winning the World Series", xlab = "Probability of the Braves winning a head-to-head matchup", ylab= "P(Win the World Series", type= "l")
+```
+
+Y is a vector of probabilities of winning the world series given the probability that the Braves win each game. The values in x are a sequence that starts at 0.5 and goes to 1 in increments of .01. Those values are the probability that the Braves win a single game. The values are plugged into the same equation we used to find the probability of winning the world series based on *P*<sub>*B*</sub> =  0.55. As you can see, as the probability of winning a single game increases so does the probability of winning the entire World Series.
+
+$$={6\choose 3} x^4(1-x)^3 + {5\choose 3} x^4(1-x)^2 + {4\choose 3} x^4(1-x)+ 0x^4$$
+
+## 3. Suppose one could change the World Series to be best-of-9 or some other best-of-X series. What is the shortest series length so that P(Braves win World Series|PB = .55) ≥ 0.8?
+
+With this question, we have to change the stopping rule for winning the World Series until the probability that the Braves win the World Series is greater than 0.8. The number of games has to be odd in order to for it to be a best-of-X series, and we already know that the probability of the Braves winning a 7-game series is 0.608. To answer this question, I first began to try different series lengths. The probability that the Braves wins either a 9-game or an 11-game series is not close to 0.8, so this method is going to take a long time!
+
+```{r}
+pnbinom(3,4,0.55)
+# number of losses, number of wins, and the probability of winning
+# 7 games series is what we start with 
+
+pnbinom(4,5,0.55)
+# here is a 9-game series
+
+pnbinom(5,6,0.55)
+# here is an 11-game series 
+# kept trying this at first to see if I can get to a probability of winning the WS of 0.8, but that is going to take forever
+```
+
+Creating a while loop will save me a lot of time. The while loop will keep iterating until the probability that the Braves win the World Series is 0.8. The probability that the Braves win the World Series is set at 0.55. The values that we are trying to find are **number_loss** (the number of losses in the series) and **number_win** (the number of wins in the series). The value for number_loss starts at 3, since this is the number of losses we would use for a 7-game series. The value for number_win starts at 4, since this is the number of wins we would use for a 7-game series. We start our variable **p_win_series** at zero since this the value that is calculated in each iteration of the while loop (the loop stops when this values is greater than or equal to 0.8). In each iteration, we add 1 to both the number of wins and the number of losses. This increases our series length by 2. When the while loop stops, the final values are plugged into the **pnbinom()** function and we are presented with the probability that the Braves win the World Series. But, our question still is not answered. We still do not know **how many** games the Braves played.
+
+```{r}
+p_braves= 0.55
+# this is the probability of winning a single game 
+p_win_series= 0 
+# we will start this value at 0 and keep going through the while loop until it is greater than or equal to 0.8
+number_loss= 3
+# start at 3 losses since this is the number of losses we would use for a 7-game series
+number_win= 4 
+# start at 4 wins since this is the number of wins we would use for a 7-game series
+
+while(p_win_series <0.8){
+  # the while loop continues while the probability of winning the world series is below 0.8
+  number_loss = number_loss +1
+  # we add 1 to the number of losses while pws < 0.8
+  number_win = number_win +1
+  # we add 1 to the number of wins while pws < 0.8
+  p_win_series = pnbinom(number_loss, number_win, 0.55)
+  # the final values for wins and losses are plugged into the pnbinom function and pws is greater than 0.8
+}
+```
+
+
+```{r}
+p_win_series
+# The probability is above 0.8
+```
+
+We can find the total games played in this series by adding the number of wins to the number of losses. The shortest series length where P(Braves win World Series|PB = .55) ≥ 0.8 is 71 games!
+
+```{r}
+number_loss + number_win
+#adding the number of wins and losses gives us the series length. the shortest series length is 71 games. 
+```
+
+## 4. What is the shortest series length so that P(Braves win World Series|*P*<sub>*B*</sub> = x) ≥ 0.8? This will be a figure with *P*<sub>*B*</sub> on the x-axis and series length is the y-axis.
+
+For this question, I will create a plot to help us visualize the relationship between the probability of the Braves winning a single game and the series length. To do this I will use the **pnbinom()** function which we have used previously to calculate the probability that the Braves win the series for each possible series length. The number of wins will start at 1 (here we are assuming that there could be a 1-game series) and will go to 1000 by 1. The number of losses will always be 1 less than the number of wins in a series. If we look at the plot below, we can see that there is a sharp downward slope until there is around a 0.6 probability of winning. Then the plot flattens out.
+
+```{r}
+p_braves = seq(0.51, 1, by =.01)
+#the probability that the braves win will be a sequence from 0.51 to 1 and will increase by 0.01
+shortest_length = NA
+# we are trying to find the shortest series length
+
+for (i in 1:length(p_braves)){
+  number_win = seq(1, 1000, by= 1)
+  # we start at 1 assuming that the world series could be only one game
+  number_loss = number_win -1 
+  # the number of losses will always be 1 less than the number of wins. The series lengths are always odd
+  p_win_series = pnbinom(number_loss, number_win, p_braves[i])
+  # we use pnbinom to find the probability of winning the entire series based off of the number of losses, the number of wins, and the probability of winning a single game
+  length_series = number_win + number_loss
+  #the length of the series is the total number of wins and losses (total games played)
+  shortest_length[i] = length_series[which(p_win_series>0.8)[1]]
+}
+
+plot(x= p_braves, y= shortest_length, type= "l", main= expression("Shortest series so that P(Win WS given p)" >= 0.8), xlab= "Probability of the Braves winning a head-to-head matchup", ylab= "Series Length" )
+#downward slope because if you increase your probability of winning a game, then the series length will be shorter (win the whole series in less games)
+```
+With our assumption that a series could be a single game, the shortest series length is 1 game long. The Braves can win the entire series in a single game.
+
+```{r}
+shortest_length[i]
+#shortest series when the probability of the Braves winning a game is greater than or equal to 0.8
+```
+
+**Summary**: This plot has a **downward** slope because if we increase the probability of winning a single game, then the series length will be shorter (Braves can win the whole series in less games).
+
+## 5. Calculate P(*P*<sub>*B*</sub> = 0.55|Braves win World Series in 7 games) under the assumption that either *P*<sub>*B*</sub> = 0.55 or *P*<sub>*B*</sub> = 0.45.
+
+In this question we have a binomial random variable because either the Braves win the World Series in 7 games **OR** they do not. We can assume that P(*P*<sub>*B*</sub> = 0.55 ) = 0.5 and P(*P*<sub>*B*</sub> = 0.45) = 0.5 (there is an equal likelihood of both probabilities of winning a game). With this assumption we can now figure out how to answer the question. I use **Bayes' Rule** In order to find the probability that the Braves win in 7 games given that the probability of winning a head-to-head matchup is 0.55.
+
+Recall that according to Baye's Theorem:
+
+- **P(A|B)** is the probability that *P*<sub>*B*</sub> = 0.55 given that the Braves win in 7 games.
+
+- **P(B|A)** is the probability that the Braves win in 7 games given that *P*<sub>*B*</sub> = 0.55.
+
+- **P(A)** is the probability that *P*<sub>*B*</sub> = 0.55.
+
+- **P(B)** is the probability that the Braves win in 7 games.
+
+Our final equation is:
+
+$$ P(P_B =0.55|Braves7) = \frac{P(P_B =0.55) * P(Braves7|P_B =0.55) }{P(Braves7)} $$
+
+I used the **dnbinom()** function to find the values. Since I assume that there is a 0.5 probability that the probability that the Braves win is 0.55, **P(A)= 0.5**. To find the value for P(B), I found the probabilities for winning 7 games for  *P*<sub>*B*</sub> = 0.55 or *P*<sub>*B*</sub> = 0.45. I added the two values together and found that the probability that the Braves win in 7 games is **0.151**. I also used the dnbinom() function to find the probability that the Braves win in 7 games given that *P*<sub>*B*</sub> = 0.55 (0.167). Lastly, I plugged all of my values into the formula to answer the question.
+
+- P(A) = 0.5
+
+- P(B) = 0.151
+
+- P(B|A) = 0.167
+
+$$ P(P_B =0.55|Braves7) = \frac{0.5 * 0.167}{0.151} =0.55 $$
+
+```{r}
+p_a <- 0.5
+#P(A) is 0.5 based on our assumption 
+p_b7 <- dnbinom(3,4, 0.45)*0.5 + dnbinom(3,4, 0.55)*0.5
+#P(B) is found by finding the probability that they win under both conditions (pb= 0.55 and pb=0.45) and adding those values together
+p_b_given_a <- dnbinom(3,4,0.55)
+# This is the probability that they win in 7 games given that pb=0.55
+p_a_given_b7 <- (p_a * p_b_given_a)/p_b7
+#used the formula for Bayes' Rule to solve this
+```
+
+_The probability that *P*<sub>*B*</sub> = 0.55 given that the Braves win the World Series in 7 games is 0.55_
+
+# Conclusions
+
+I hope that you found this process as helpful as I did! Going through this deliverable has given me a greater understanding of **discrete probability functions**. I can now understand the difference between a **binomial distribution** and a **negative distribution**. Also, it was really cool that we got to discuss past concepts such as **stopping rules**! And finally... the best conclusion of all... I think I'll watch the World Series the next time it comes on! As always, I thank you for reading my blog and good luck finding the best data scientist for your company.
+
+
+

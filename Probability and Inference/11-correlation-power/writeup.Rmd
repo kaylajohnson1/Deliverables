@@ -1,0 +1,230 @@
+---
+title: "Correlation Power"
+author: "Kayla Johnson"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    number_sections: false
+    toc_depth: 3
+    toc_float: true
+---
+
+# Introduction 
+
+Hello, and welcome to my blog! I am excited to collaborate with you on your research. Today, I am very excited to explore the concepts of power and sample size calculations in correlational studies.
+
+As you know, a common research objective is to demonstrate that two measurements are highly correlated. One measurement, call it A, may reflect the severity
+of disease but is difficult or costly to collect. Another measurement,
+call it B, may be easier to collect and potentially related to
+measurement A. If there is strong association between A and B, a cost
+effective strategy for diagnosis may be to collect **measurement B** instead
+of A.
+
+In this blog, I will perform a power and sample size
+calculation for our grant application (to fund a study to show that two measurements are highly correlated).
+Reviewers of the grant want to fund studies that have a high likelihood
+of success, which in this setting is conclusively demonstrating that the
+**correlation between A and B is greater than 0.8.**
+
+You will collect both measurements on N individuals. The
+analysis will proceed by calculating a one-sided confidence interval. If
+the confidence interval is completely within the range from 0.8 to 1,
+then you will consider the study to be a success: _A
+conclusive demonstration that the correlation between A and B is greater
+than 0.8._
+
+## Background
+
+### Type II Error
+
+**Definition: Type II Error ** occurs when you fail to reject the null hypothesis when it is false (beta probability). In other words, you wrongly identify that there is a conclusive similarity when there is not one. 
+
+### Power 
+
+**Definition: Power** is the probability that the study will end in success when the
+true underlying correlation is, in fact, greater than or equal to 0.8. (Note the
+connection to Type II error (β): **power** = 1 - $\beta$.) I need to estimate power for different combinations of sample size
+and the true population correlation. I will let the sample size be 25, 50, 75,
+and 100. I will let the population correlation range from 0.8 to 0.95.
+
+# Methods 
+
+## Power 
+
+### Sample size of 25 
+
+First we will estimate power for a sample size of 25.
+
+Here is how the function powerfnc() works: 
+
+First, it takes the sample size (N) and the true population correlation (rho) as inputs. Since a study is a success when the **correlation between A and B is greater than 0.8**, that is the null correlation. A one-sided confidence interval is conducted on the data that is generated. If the lower bound is greater than 0.8 (the null correlation), then TRUE is added to a vector of TRUE and FALSE values. The mean of that vector is calculated and is the output of the function. This is the **power** based on the sample size and the true population correlation.  
+
+```{r}
+suppressPackageStartupMessages(require(mvtnorm))
+
+powerfnc <- function(N, rho){
+  # power fnc takes N (sample size) 
+  # and rho (true population correlation) as inputs 
+null_correlation <- 0.8
+R <- 5000
+
+sigma <- array(c(1,rho,rho,1), c(2,2))
+mu <- c(0,0)
+
+
+  detect <- rep(NA, R)
+  for(i in 1:R){
+    data <- rmvnorm(N, mean = mu, sigma = sigma)
+    #measurement A is data[,1]
+    #measurement B is data[,2]
+    
+    # option alternative = "greater" is one-sided 95% confidence interval (default if middle 95% confidence interval)
+    results <- cor.test(x = data[,1], y = data[,2], alternative = "greater")
+    
+    # Tests if lower bound is greater than 0.8
+    detect[i] <- results$conf.int[1] > null_correlation
+  }
+  power <- mean(detect)
+  power
+  # the output is the power which is the mean that the lower bound is greater than 0.8
+}
+```
+
+First I will try the power function for four different values of rho. As you can see, the power increases as rho increases. When rho is 0.9 the power is not high enough for the study to be a success! 
+
+```{r}
+N= 25
+
+powerfnc(N,.8)
+powerfnc(N,.85)
+powerfnc(N,.9)
+powerfnc(N,.95)
+```
+
+Now we will create a list with the power for each value of rho (the true population correlation).
+
+```{r}
+powerlist= NA
+rho= seq(.8,.95, by= .009)
+for(i in 1:length(rho)){
+  powerlist[i] <- powerfnc(N, rho[i])
+  twofive <- powerlist
+}
+
+plot(type="l",x= rho, y=twofive, main= "Power vs. True Population Correlation (N= 25)", ylab= "Power", xlab= "True Pop. Correlation")
+abline(h=0.8, col="red", lwd= 2, lty= 3)
+legend("topleft", legend = "0.8", col= "red", box.lty= 0,lwd= 2, lty= 3, cex=.95, inset= 0.05)
+```
+
+From the plot, we can see that the power is above 0.8 when the value for rho is about 0.92. With a sample size of 25, the study can end in success if the true population correlation is 0.95. 
+
+### Sample size of 50 
+
+Now we can estimate power for a sample size of 50. It will be interesting to see how doubling the sample size will impact the power. 
+
+```{r}
+N= 50
+
+powerfnc(N,.8)
+powerfnc(N,.85)
+powerfnc(N,.9)
+powerfnc(N,.95)
+```
+
+When I use the powerfnc() function with four different values of rho, I can see that the power is above 0.8 when rho is 0.9. These values for power are larger than the values when the sample size was 25. 
+
+```{r}
+powerlist= NA
+rho= seq(.8,.95, by= .009)
+for(i in 1:length(rho)){
+  powerlist[i] <- powerfnc(N, rho[i])
+  fifty <- powerlist
+}
+
+plot(type="l",x= rho, y=fifty, main= "Power vs. True Population Correlation (N= 50)", ylab= "Power", xlab= "True Pop. Correlation")
+abline(h=0.8, col="red", lwd= 2, lty= 3)
+legend("topleft", legend = "0.8", col= "red", box.lty= 0,lwd= 2, lty= 3, cex=.85, inset= 0.01)
+```
+
+When I plot the power for the sample of size 50, I see that "success" requires a smaller true population correlation than when there is a sample size of 25. The power is above 0.8 when the true population correlation is about 0.89. 
+
+
+### Sample size of 75
+
+Now we will increase the sample size to 75! I am very interested to see the impact that this change will have on the power. 
+
+```{r}
+N= 75
+
+powerfnc(N,.8)
+powerfnc(N,.85)
+powerfnc(N,.9)
+powerfnc(N,.95)
+```
+
+Once again, I used the powerfnc() function with four different values of rho (true population correlation). When rho is 0.9 the power is far above 0.8! It looks like increasing the sample size really does impact the power! When the sample size is large, a smaller value of rho can lead to success (power > 0.8).
+
+```{r}
+powerlist= NA
+rho= seq(.8,.95, by= .009)
+for(i in 1:length(rho)){
+  powerlist[i] <- powerfnc(N, rho[i])
+  sevenfive <- powerlist
+}
+
+plot(type="l",x= rho, y=sevenfive, main= "Power vs. True Population Correlation (N= 75)", ylab= "Power", xlab= "True Pop. Correlation")
+abline(h=0.8, col="red", lwd= 2, lty= 3)
+legend("topleft", legend = "0.8", col= "red", box.lty= 0,lwd= 2, lty= 3, cex=.85, inset= 0.01)
+
+```
+
+When we plot the power, we get a visualization of the impact of the sample size increase and the different values for the true population correlation. When there is a sample of size 75, the power is above 0.8 when rho is about 0.89. 
+
+### Sample size of 100
+
+Finally, we will see how changing the sample size to 100 will impact power. Based on what I have seen so far, I am guessing that a smaller value of rho will give us a power above 0.8. 
+
+```{r}
+N= 100
+
+powerfnc(N,.8)
+powerfnc(N,.85)
+powerfnc(N,.9)
+powerfnc(N,.95)
+```
+
+When rho (true population correlation) is 0.9  the power is 0.981!
+
+```{r}
+powerlist= NA
+rho= seq(.8,.95, by= .009)
+for(i in 1:length(rho)){
+  powerlist[i] <- powerfnc(N, rho[i])
+  hundred <- powerlist
+}
+
+plot(type="l",x= rho, y=hundred, main= "Power vs. True Population Correlation (N= 100)", ylab= "Power", xlab= "True Pop. Correlation")
+abline(h=0.8, col="red", lwd= 2, lty= 3)
+legend("topleft", legend = "0.8", col= "red", box.lty= 0,lwd= 2, lty= 3, cex=.85, inset= 0.01)
+```
+
+When I plot the power for a sample of size 100, I see that it is above 0.8 when rho is about 0.88. 
+
+# Conclusion
+
+Here is a concluding plot that allows you to compare the true population and power for different sample sizes! This is a summary of what we did in the blog.
+
+```{r}
+plot(x= rho, y= twofive, type= "l", lwd= 4, col= "pink", main= "Power vs. True Population Correlation", ylab= "Power", xlab= "True Pop. Correlation")
+lines(x= rho, y= fifty, col="blue",lty=2, lwd=4)
+lines(x= rho, y= sevenfive, col="orange",lty=3, lwd=4)
+lines(x= rho, y= hundred, col="green",lty=4, lwd= 4)
+abline(h=0.8, col="gray", lwd= 2, lty= 3)
+legend("bottomright", title= "Sample Size", legend = c("25", "50", "75", "100"), col= c("pink", "blue", "orange", "green"), box.lty= 1,lwd= 4, lty= c(1,2,3,4), cex=.85, inset= 0.01)
+```
+
+Wow! Now that I understand the concept of power, I feel quite _powerful_ ;)! I hope that this blog was informative and that it helps with your grant application. It was great to talk about *power* which is the is the probability that a study will end in success when the true underlying correlation is greater than or equal to 0.8. It is very important to remember that both the sample size and true population correlation impact power. ]
+
+Thanks for reading! I wish you great _success_ in the future!!
